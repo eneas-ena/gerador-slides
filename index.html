@@ -106,6 +106,18 @@
   .bl .n{color:#6b7f9e; font-size:12px; font-family:ui-monospace,monospace}
   .metricas{display:flex; flex-wrap:wrap; gap:16px; margin:10px 0 4px; color:var(--muted); font-size:14px}
   .metricas b{color:var(--cream); font-family:'Cinzel',serif}
+  .config{display:flex; gap:8px; align-items:center; margin-top:10px}
+  .config label{font-family:'Cinzel',serif; font-size:12px; color:var(--muted); letter-spacing:.5px}
+  .config input{
+    flex:1; background:var(--deep); color:var(--cream); border:1px solid #2b3d5c;
+    border-radius:8px; padding:8px 10px; font-family:ui-monospace,monospace; font-size:12px;
+  }
+  .config button{padding:8px 12px; font-size:12px}
+  #progresso{margin-top:12px; font-size:15px; color:var(--muted)}
+  #progresso .andando{
+    border-left:3px solid var(--gold); padding:8px 12px; border-radius:0 6px 6px 0;
+    background:rgba(201,162,39,.08);
+  }
   footer{padding:14px 20px 40px; text-align:center; color:var(--muted); font-size:13px}
   code{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold)}
 </style>
@@ -133,9 +145,16 @@
     <div id="perfilBox"></div>
     <div class="metricas" id="metricas"></div>
     <div class="barra">
+      <button class="primario" id="btnIA" onclick="gerarRoteiroIA()">Gerar roteiro com IA</button>
       <button onclick="baixarExtracao()">Baixar extração (.json)</button>
       <button onclick="verTextoBruto()">Ver texto corrido</button>
     </div>
+    <div class="config">
+      <label>Worker</label>
+      <input id="workerUrl" placeholder="https://gerador-slides.eneaspr.workers.dev">
+      <button onclick="salvarWorker()">Salvar</button>
+    </div>
+    <div id="progresso"></div>
     <div id="avisosDoc" style="margin-top:12px"></div>
   </section>
 
@@ -881,6 +900,261 @@ function trocarAba(id){
 }
 
 /* ==========================================================================
+   6-C. ETAPA 3 — CAMADA DE IA (Worker + Claude)
+   ========================================================================== */
+const MODELO = 'claude-sonnet-5';   // a escolha de layout exige julgamento editorial
+const MAX_CHARS_LOTE = 22000;       // teto de texto por chamada
+
+/* --- 6C.1 catálogo de campos (fonte única, alinhada à biblioteca) --- */
+const CAMPOS = {
+  capa:            'eyebrow, linha1, linha2, subtitulo, rodape',
+  declaracao:      'antetitulo[], frase, apoio',
+  roteiro:         'titulo, itens[{num,texto}]',
+  ponto:           'num, titulo, afirmacao, corpo[], ref, sigla',
+  ilustracao:      'eyebrow, titulo, texto, remate',
+  contraste:       'titulo, esq{rotulo,texto}, dir{rotulo,texto}, remate',
+  cards3:          'titulo, itens[{num,titulo,texto}]  (máx. 3)',
+  chips:           'titulo, subtitulo, chips[], remate',
+  perguntas:       'eyebrow, titulo, itens[]',
+  cartoes:         'eyebrow, titulo, itens[]  (máx. 4)',
+  versiculo:       'eyebrow, texto, ref',
+  texto_longo:     'eyebrow, bloco1, bloco2, rodape',
+  leitura_biblica: 'ref, versiculos[{n,texto}], continua',
+  cascata:         'frases[], enfase (índice da frase-clímax)',
+  recapitulacao:   'titulo, linhas[]',
+  contraste_termos:'titulo, termoA{palavra,glosa}, termoB{palavra,glosa}, sintese',
+  apelo:           'eyebrow, pergunta, apoio',
+  divisor_secao:   'rotulo, numero, titulo, resumo',
+  citacao_autor:   'autor, obra, citacao',
+  definicao:       'termo, definicao, contraTermo, contraDefinicao',
+  tabela:          'titulo, colunas[], linhas[[]]  (2 a 4 colunas)',
+  metodo_etapas:   'titulo, etapas[{num,titulo,texto}]  (máx. 4)'
+};
+const USO = {
+  estudo:   'capa, declaracao, roteiro, ponto, ilustracao, contraste, cards3, chips, perguntas, cartoes, versiculo, texto_longo',
+  sermao:   'capa, leitura_biblica, declaracao, cascata, ponto, ilustracao, contraste_termos, versiculo, recapitulacao, apelo',
+  apostila: 'divisor_secao, declaracao, metodo_etapas, tabela, definicao, cards3, versiculo, ponto, ilustracao, citacao_autor, cartoes, perguntas'
+};
+
+/* --- 6C.2 prompt do sistema (seção 6 da especificação) --- */
+function promptSistema(perfil){
+  const catalogo = Object.keys(CAMPOS).map(k => `- ${k}: ${CAMPOS[k]}`).join('\n');
+  const guia = {
+    estudo:
+`PERFIL: ESTUDO BÍBLICO. Seções nomeadas de forma reconhecível. Densidade média,
+20 a 25 slides. Abra com "capa", apresente o caminho com "roteiro", desenvolva
+cada ponto e feche com "perguntas".`,
+    sermao:
+`PERFIL: SERMÃO. Estrutura livre, 25 a 30 slides. Cada ponto costuma ter quatro
+movimentos: citação do verso → explicação exegética → ilustração → aplicação em
+segunda pessoa. QUEBRE em dois ou três slides; não esprema num só.
+Sinais: ilustração abre com "É como…", "Como um(a)…", "Imagine…", "Pense…";
+aplicação muda para segunda pessoa ("Você já foi…", "Não desanime…");
+exegese cita tempo verbal, termo original, ou compara Antigo e Novo Testamento.
+Use "leitura_biblica" na abertura, "cascata" no ritmo retórico e "apelo" no fim.`,
+    apostila:
+`PERFIL: APOSTILA DO MENTOR. Estrutura já delimitada — você NÃO decide a
+estrutura, apenas condensa dentro de cada seção. Abra cada assunto com
+"divisor_secao". Mapa de seção para layout:
+1 Introdução → declaracao ou cascata (1 slide)
+2 Desenvolvimento → metodo_etapas, tabela, cards3, definicao (3 a 6)
+3 Fundamentação bíblica → versiculo + ponto (1 a 2)
+4 Explicação teológica → ponto (1 a 2)
+5 Exemplos teóricos → ilustracao (1 a 2)
+6 Exemplos práticos → cards3 ou roteiro (1 a 2)
+7 Citações → citacao_autor (1 por citação)
+8 Aplicação ministerial → ilustracao ou cartoes (1)
+9 Perguntas → perguntas (1)`
+  }[perfil];
+
+  return `Você estrutura documentos ministeriais em roteiros de apresentação.
+
+CONTEXTO TEOLÓGICO DO AUTOR
+Pastor batista, conservador, cristocêntrico, escatologia amilenista
+(explicitamente não-dispensacionalista), continuísta equilibrado quanto aos
+dons, alta visão das Escrituras.
+
+REGRAS
+1. NUNCA reescreva o conteúdo teológico. Você reorganiza e condensa; não
+   interpreta, não corrige doutrina, não acrescenta afirmação que não esteja
+   no texto.
+2. Escolha o layout pelo TIPO de conteúdo, não pelo tamanho.
+3. Um slide = uma ideia. Se um trecho tem ilustração E aplicação, são dois
+   slides.
+4. Preserve frases curtas em cascata como cascata. Não converta em tópicos.
+5. Cite o texto bíblico literalmente, com a referência e a versão.
+6. Escreva notas do orador para todo slide de conteúdo.
+7. Limites rígidos: título até 60 caracteres; frase dominante até 95; item de
+   lista até 110; no máximo 4 itens por slide.
+8. Se encontrar inconsistência (referência divergente, ponto sem base
+   textual, numeração repetida), registre em "avisos" e siga adiante. Não corrija.
+
+${guia}
+
+LAYOUTS DISPONÍVEIS (id: campos aceitos)
+${catalogo}
+
+Priorize neste documento: ${USO[perfil]}
+
+SAÍDA
+Apenas o objeto JSON, neste formato exato:
+{"titulo":"…","subtitulo":"…","serie":"…","avisos":["…"],
+ "slides":[{"layout":"capa","campos":{…},"notas":"…"}]}
+Sem preâmbulo, sem cercas de markdown, sem comentários.`;
+}
+
+/* --- 6C.3 texto do documento com os papéis marcados --- */
+function textoMarcado(blocos){
+  return blocos.map(b => {
+    if (b.tipo === 'tabela') return '[TABELA] ' + b.linhas.map(l => l.join(' | ')).join(' ;; ');
+    if (b.papel === 'unidade') return '\n[UNIDADE] ' + b.texto;
+    if (b.papel === 'assunto') return '\n[ASSUNTO] ' + b.texto;
+    if (b.papel === 'secao')   return '\n[SEÇÃO ' + b.num + '] ' + b.texto;
+    if (b.papel === 'titulo')  return '\n[TÍTULO] ' + b.texto;
+    if (b.tipo === 'item')     return '  • ' + b.texto;
+    return b.texto;
+  }).join('\n');
+}
+
+/* --- 6C.4 fatiamento: apostila por assunto, demais por tamanho --- */
+function fatiar(E){
+  const lotes = [];
+  if (E.perfil === 'apostila') {
+    let atual = null;
+    E.blocos.forEach(b => {
+      if (b.papel === 'assunto') { atual = { rotulo:b.rotulo, blocos:[b] }; lotes.push(atual); }
+      else if (atual) atual.blocos.push(b);
+      else { if (!lotes.length) lotes.push({ rotulo:'Abertura', blocos:[] }); lotes[0].blocos.push(b); }
+    });
+  }
+  if (!lotes.length) lotes.push({ rotulo: E.arquivo, blocos: E.blocos });
+
+  // quebra lotes grandes demais, sempre em fronteira de bloco
+  const finais = [];
+  lotes.forEach(l => {
+    let acc = [], tam = 0;
+    l.blocos.forEach(b => {
+      const t = (b.texto || '').length + 20;
+      if (tam + t > MAX_CHARS_LOTE && acc.length) { finais.push({ rotulo:l.rotulo, blocos:acc, parcial:true }); acc = []; tam = 0; }
+      acc.push(b); tam += t;
+    });
+    if (acc.length) finais.push({ rotulo:l.rotulo, blocos:acc, parcial: finais.some(f=>f.rotulo===l.rotulo) });
+  });
+  return finais;
+}
+
+/* --- 6C.5 extração de JSON tolerante a preâmbulo e cercas --- */
+function extrairJSON(bruto){
+  let t = String(bruto).trim();
+  t = t.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/, '');
+  const i = t.indexOf('{'), f = t.lastIndexOf('}');
+  if (i < 0 || f < 0) throw new Error('resposta sem objeto JSON');
+  return JSON.parse(t.slice(i, f + 1));
+}
+
+/* --- 6C.6 conformidade com o contrato --- */
+function conferirContrato(r){
+  const erros = [];
+  if (!r || typeof r !== 'object') { erros.push('resposta não é um objeto'); return erros; }
+  if (!Array.isArray(r.slides) || !r.slides.length) erros.push('campo "slides" ausente ou vazio');
+  (r.slides || []).forEach((s, i) => {
+    if (!s.layout) erros.push(`slide ${i+1}: sem "layout"`);
+    else if (!LAYOUTS[s.layout]) erros.push(`slide ${i+1}: layout "${s.layout}" não existe`);
+    if (!s.campos || typeof s.campos !== 'object') erros.push(`slide ${i+1}: sem objeto "campos"`);
+  });
+  return erros;
+}
+
+/* --- 6C.7 chamada ao Worker, com nova tentativa em caso de falha --- */
+async function chamarIA(sistema, pedido, tentativa){
+  tentativa = tentativa || 1;
+  const url = (document.getElementById('workerUrl').value || '').trim();
+  if (!url) throw new Error('Informe a URL do Worker.');
+
+  const mensagens = [{ role:'user', content: pedido }];
+  if (tentativa > 1) {
+    mensagens.push({ role:'assistant', content:'{' });   // força continuação em JSON
+  }
+
+  const r = await fetch(url, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body: JSON.stringify({ model:MODELO, max_tokens:8000, temperature:0.2, system:sistema, messages:mensagens })
+  });
+  const dados = await r.json();
+  if (!r.ok || dados.error) throw new Error((dados.error && dados.error.message) || dados.erro || ('HTTP ' + r.status));
+
+  let bruto = (dados.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+  if (tentativa > 1) bruto = '{' + bruto;
+
+  try {
+    const obj = extrairJSON(bruto);
+    const erros = conferirContrato(obj);
+    if (erros.length && tentativa < 3) throw new Error(erros.slice(0,4).join(' · '));
+    return { obj, erros };
+  } catch(e) {
+    if (tentativa >= 3) throw new Error('A IA não devolveu JSON válido após 3 tentativas. ' + e.message);
+    const correcao = pedido +
+      `\n\nATENÇÃO: a tentativa anterior falhou (${e.message}). Devolva SOMENTE o objeto JSON,` +
+      ` começando em { e terminando em }, usando apenas os ids de layout listados.`;
+    return chamarIA(sistema, correcao, tentativa + 1);
+  }
+}
+
+/* --- 6C.8 orquestração --- */
+async function gerarRoteiroIA(){
+  if (!EXTRACAO) { alert('Carregue um documento primeiro (aba 1).'); return; }
+  const btn = document.getElementById('btnIA');
+  const prog = document.getElementById('progresso');
+  btn.disabled = true;
+
+  const sistema = promptSistema(EXTRACAO.perfil);
+  const lotes = fatiar(EXTRACAO);
+  const roteiro = { titulo:'', subtitulo:'', serie:'', avisos:[], slides:[] };
+  const problemas = [];
+
+  try {
+    for (let i = 0; i < lotes.length; i++){
+      const l = lotes[i];
+      prog.innerHTML = `<div class="andando">Estruturando ${i+1} de ${lotes.length} — ${l.rotulo}…</div>`;
+
+      const contexto = lotes.length > 1
+        ? `Este é o trecho ${i+1} de ${lotes.length} do documento "${EXTRACAO.arquivo}".` +
+          (i > 0 ? ' NÃO gere slide de capa: ele já foi criado no primeiro trecho.' : '')
+        : `Documento: "${EXTRACAO.arquivo}".`;
+
+      const pedido = `${contexto}\nPerfil detectado: ${EXTRACAO.perfil}.\n\n--- DOCUMENTO ---\n${textoMarcado(l.blocos)}\n--- FIM ---`;
+      const { obj, erros } = await chamarIA(sistema, pedido);
+
+      if (i === 0){ roteiro.titulo = obj.titulo || EXTRACAO.arquivo; roteiro.subtitulo = obj.subtitulo || ''; roteiro.serie = obj.serie || ''; }
+      (obj.avisos || []).forEach(a => roteiro.avisos.push(a));
+      (obj.slides || []).forEach(s => {
+        if (i > 0 && s.layout === 'capa') return;      // capa só no primeiro trecho
+        roteiro.slides.push(s);
+      });
+      erros.forEach(e => problemas.push(`${l.rotulo}: ${e}`));
+    }
+
+    problemas.forEach(p => roteiro.avisos.push('Conferir manualmente — ' + p));
+    document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
+    validar(true);
+    prog.innerHTML = `<div class="aviso ok">Roteiro pronto: ${roteiro.slides.length} slides em ${lotes.length} chamada(s). Confira na aba 2 antes de gerar.</div>`;
+    trocarAba('roteiro');
+  } catch(e){
+    console.error(e);
+    prog.innerHTML = `<div class="aviso erro">${e.message}</div>`;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function salvarWorker(){
+  const v = document.getElementById('workerUrl').value.trim();
+  try { localStorage.setItem('gerador_worker', v); } catch(e){}
+  document.getElementById('progresso').innerHTML = '<div class="aviso ok">URL do Worker salva neste navegador.</div>';
+}
+
+/* ==========================================================================
    7. INTERFACE
    ========================================================================== */
 function lerJSON(){
@@ -1112,6 +1386,7 @@ const DEMO = {
 
 /* --- eventos de upload --- */
 (function(){
+  try { const w = localStorage.getItem('gerador_worker'); if (w) document.getElementById('workerUrl').value = w; } catch(e){}
   const drop = document.getElementById('drop');
   const inp  = document.getElementById('arquivo');
   inp.addEventListener('change', e => { if (e.target.files[0]) processarArquivo(e.target.files[0]); });
