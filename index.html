@@ -1079,7 +1079,7 @@ async function chamarIA(sistema, pedido, tentativa){
   const r = await fetch(url, {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ model:MODELO, max_tokens:8000, temperature:0.2, system:sistema, messages:mensagens })
+    body: JSON.stringify({ model:MODELO, max_tokens:8000, system:sistema, messages:mensagens })
   });
   const dados = await r.json();
   if (!r.ok || dados.error) throw new Error((dados.error && dados.error.message) || dados.erro || ('HTTP ' + r.status));
