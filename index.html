@@ -176,6 +176,17 @@
   }
   @keyframes girar{to{transform:rotate(360deg)}}
 
+  .cores{display:flex; align-items:center; gap:9px; margin-top:16px; flex-wrap:wrap}
+  .cores .rot{font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-right:2px}
+  .bola{
+    width:30px; height:30px; border-radius:50%; cursor:pointer; padding:0;
+    border:2px solid transparent; position:relative; transition:.15s;
+  }
+  .bola:hover{transform:scale(1.08)}
+  .bola.ativa{border-color:var(--accent)}
+  .bola i{
+    position:absolute; inset:5px; border-radius:50%; display:block;
+  }
   .paletas{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
   .pal{
     border:1.5px solid var(--linha); border-radius:12px; padding:12px; cursor:pointer;
@@ -268,6 +279,7 @@
   <section class="painel">
     <h2>Roteiro em JSON</h2>
     <textarea id="json" spellcheck="false"></textarea>
+    <div class="cores" id="cores"><span class="rot">Cor</span></div>
     <div class="barra">
       <button class="primario" onclick="gerar()">Gerar PPTX</button>
       <button onclick="validar(true)">Validar</button>
@@ -306,7 +318,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.0';
+const VERSAO = '4.1';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -396,6 +408,16 @@ function desenharPaletas(){
              '<div class="desc">acento ' + p.acento.toLowerCase() + '</div>' +
            '</button>';
   }).join('');
+
+  const cx = document.getElementById('cores');
+  if (cx){
+    cx.innerHTML = '<span class="rot">Cor</span>' + Object.keys(PALETAS).map(id => {
+      const c = PALETAS[id].cores;
+      return '<button class="bola ' + (id === PALETA_ATIVA ? 'ativa' : '') + '" title="' + PALETAS[id].nome +
+             '" onclick="aplicarPaleta(\'' + id + '\')" style="background:#' + c.NAVY + '">' +
+             '<i style="background:#' + c.GOLD + '"></i></button>';
+    }).join('');
+  }
 
   const pv = document.getElementById('previa');
   if (pv){
