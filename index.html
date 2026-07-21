@@ -343,7 +343,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.5';
+const VERSAO = '4.6';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -1364,7 +1364,7 @@ const LIMITE_SEG_CHAMADA = 150;     // uma chamada presa e abandonada
 const LIMITE_DIVISOES = 2;          // quantas vezes um trecho pode ser partido
 let CHAMADAS = 0, CANCELAR = false, ABORTADOR = null;
 const MAX_TOKENS = 16000;           // roteiro completo com notas do orador não cabe em 8000
-const MAX_CHARS_LOTE = 7000;        // teto de texto por chamada (lotes menores = respostas mais rápidas)
+const MAX_CHARS_LOTE = 3800;        // trecho curto: resposta rapida e sem risco de corte
 
 /* --- 6C.1 catálogo de campos (fonte única, alinhada à biblioteca) --- */
 const CAMPOS = {
@@ -1459,10 +1459,13 @@ ${catalogo}
 
 Priorize neste documento: ${USO[perfil]}
 
-LIMITE POR RESPOSTA
-Gere no máximo 12 slides por trecho recebido. Se o conteúdo pedir mais, priorize
-o essencial e registre em "avisos" o que ficou de fora. Uma resposta longa demais
-é cortada pelo servidor e se perde inteira.
+RITMO E LIMITE POR RESPOSTA
+Cada trecho recebido é uma parte do documento, não o documento inteiro.
+Trabalhe apenas o que está no trecho, sem resumir e sem antecipar o que virá.
+Ritmo esperado: cerca de um slide a cada 70 palavras do trecho.
+Máximo de 12 slides por resposta: acima disso o servidor corta a resposta e ela
+se perde inteira. Se o trecho pedir mais, priorize o essencial e registre em
+"avisos" o que ficou de fora.
 
 SAÍDA
 Apenas o objeto JSON, neste formato exato:
@@ -1482,6 +1485,15 @@ function textoMarcado(blocos){
     if (b.tipo === 'item')     return '  • ' + b.texto;
     return b.texto;
   }).join('\n');
+}
+
+/* assinatura de um slide: mesmo layout + mesmo conteudo = slide repetido */
+function assinatura(sl){
+  const f = sl.campos || {};
+  const texto = ['titulo','frase','linha1','pergunta','termo','ref','texto','afirmacao','autor','citacao','rotulo']
+    .map(k => f[k] || '').join(' ') ||
+    JSON.stringify(f).slice(0, 160);
+  return sl.layout + '|' + String(texto).toLowerCase().replace(/[^a-zà-ú0-9]+/g,'').slice(0, 90);
 }
 
 /* --- 6C.4 fatiamento: apostila por assunto, demais por tamanho --- */
@@ -1665,6 +1677,7 @@ async function gerarRoteiroIA(){
   document.getElementById('btnParar').style.display = '';
   const roteiro = { titulo:'', subtitulo:'', serie:'', paleta:PALETA_ATIVA, avisos:[], slides:[] };
   const problemas = [];
+  const vistos = new Set();   // assinaturas ja incluidas, para nao repetir slide
   let feitos = 0, primeiro = true;
 
   iniciarCrono();
@@ -1726,10 +1739,15 @@ async function gerarRoteiroIA(){
         primeiro = false;
       }
       (obj.avisos || []).forEach(a => roteiro.avisos.push(a));
+      let repetidos = 0;
       (obj.slides || []).forEach(s => {
         if (roteiro.slides.some(x => x.layout === 'capa') && s.layout === 'capa') return;
+        const a = assinatura(s);
+        if (vistos.has(a)) { repetidos++; return; }   // reenvio de trecho nao duplica slide
+        vistos.add(a);
         roteiro.slides.push(s);
       });
+      if (repetidos) registrar(repetidos + ' slide(s) repetido(s) descartado(s)');
       normalizarSlides(roteiro);
       erros.forEach(e => problemas.push(`${l.rotulo}: ${e}`));
       feitos++;
@@ -1754,6 +1772,13 @@ async function gerarRoteiroIA(){
         Tente novamente; se repetir, o documento pode ter algum trecho que a trava.</div>`;
       return;
     }
+    const previsto = Math.round(EXTRACAO.palavras / 45);
+    if (!problemas.length && roteiro.slides.length < previsto * 0.55){
+      roteiro.avisos.push('Roteiro enxuto: ' + roteiro.slides.length + ' slides para ' +
+        EXTRACAO.palavras + ' palavras. Se ficou raso, gere de novo — a IA varia um pouco a cada vez.');
+      document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
+    }
+
     if (problemas.length){
       caixa.innerHTML = `<div class="aviso">Roteiro <b>parcial</b>: ${roteiro.slides.length} slides em ${seg}s,
         mas ${problemas.length} trecho(s) não foram convertidos. Os avisos no roteiro dizem quais.</div>`;
