@@ -3,6 +3,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <title>Gerador de Apresentações · Igreja Vidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -128,15 +131,33 @@
     animation:girar .9s linear infinite;
   }
   @keyframes girar{to{transform:rotate(360deg)}}
+  .versao{
+    display:inline-block; margin-left:10px; padding:2px 9px; border-radius:20px;
+    border:1px solid #2b3d5c; background:var(--deep); color:var(--gold);
+    font-family:ui-monospace,monospace; font-size:11.5px; cursor:pointer;
+  }
+  .versao:hover{border-color:var(--gold)}
+  #faixaAtualizar .faixa{
+    background:var(--gold); color:var(--navy); padding:11px 20px; text-align:center;
+    font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:600;
+  }
+  #faixaAtualizar .faixa button{
+    margin-left:12px; background:var(--navy); color:var(--gold); border-color:var(--navy);
+    padding:6px 14px; font-size:12px;
+  }
   footer{padding:14px 20px 40px; text-align:center; color:var(--muted); font-size:13px}
   code{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold)}
 </style>
 </head>
 <body>
 
+<div id="faixaAtualizar"></div>
+
 <header>
   <h1>Gerador de Apresentações</h1>
-  <p>Etapa 1 — núcleo do gerador · 22 layouts nativos · JSON → PPTX editável</p>
+  <p>Etapa 3 — documento, IA e PPTX editável
+     <span class="versao" id="selo" onclick="checarAtualizacao(false)" title="Clique para verificar se há versão nova"></span>
+  </p>
 </header>
 
 <nav class="abas">
@@ -199,6 +220,47 @@
 </footer>
 
 <script>
+/* ==========================================================================
+   0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
+   ========================================================================== */
+const VERSAO = '3.3';
+const DATA_VERSAO = '21/07/2026';
+
+function selo(txt, cor){
+  const el = document.getElementById('selo');
+  el.textContent = txt || ('v' + VERSAO + ' · ' + DATA_VERSAO);
+  el.style.color = cor || '';
+}
+
+/* Busca a própria página no servidor ignorando qualquer cache e compara a versão. */
+async function checarAtualizacao(silencioso){
+  if (!silencioso) selo('verificando…', '#9FB0C9');
+  try {
+    const r = await fetch(location.pathname + '?checar=' + Date.now(), { cache:'no-store' });
+    const t = await r.text();
+    const m = t.match(/const VERSAO = '([^']+)'/);
+    if (!m) { if (!silencioso) selo('não deu para verificar', '#9FB0C9'); return; }
+    if (m[1] !== VERSAO) {
+      document.getElementById('faixaAtualizar').innerHTML =
+        `<div class="faixa">Existe uma versão mais nova no servidor (v${m[1]}). Você está usando a v${VERSAO}.
+         <button onclick="recarregarLimpo()">Atualizar agora</button></div>`;
+      selo('v' + VERSAO + ' · desatualizado', '#E0A060');
+    } else {
+      selo();
+      if (!silencioso) {
+        document.getElementById('faixaAtualizar').innerHTML =
+          `<div class="faixa">Você já está na versão mais recente (v${VERSAO}).</div>`;
+        setTimeout(() => { document.getElementById('faixaAtualizar').innerHTML = ''; }, 4000);
+      }
+    }
+  } catch(e){ if (!silencioso) selo('sem conexão', '#9FB0C9'); }
+}
+
+/* Recarrega com endereço novo: o navegador e a rede do GitHub são obrigados a buscar de novo. */
+function recarregarLimpo(){
+  location.replace(location.pathname + '?v=' + Date.now());
+}
+
 /* ==========================================================================
    1. IDENTIDADE VISUAL  (hex SEM "#" — exigência do PptxGenJS)
    ========================================================================== */
@@ -1492,6 +1554,8 @@ const DEMO = {
 
 /* --- eventos de upload --- */
 (function(){
+  selo();
+  checarAtualizacao(true);   // verifica em silêncio ao abrir
   try { const w = localStorage.getItem('gerador_worker'); if (w) document.getElementById('workerUrl').value = w; } catch(e){}
   const drop = document.getElementById('drop');
   const inp  = document.getElementById('arquivo');
