@@ -115,9 +115,19 @@
   .config button{padding:8px 12px; font-size:12px}
   #progresso{margin-top:12px; font-size:15px; color:var(--muted)}
   #progresso .andando{
-    border-left:3px solid var(--gold); padding:8px 12px; border-radius:0 6px 6px 0;
+    border-left:3px solid var(--gold); padding:10px 14px; border-radius:0 8px 8px 0;
     background:rgba(201,162,39,.08);
   }
+  #progresso .linha{display:flex; align-items:center; gap:10px}
+  #progresso .passo{flex:1; font-family:'Cinzel',serif; font-size:14px; color:var(--gold); letter-spacing:.4px}
+  #progresso .relogio{font-family:ui-monospace,monospace; font-size:13px; color:var(--muted)}
+  #progresso .fase{margin-top:6px; font-size:14.5px; color:var(--cream); opacity:.85}
+  .giro{
+    width:16px; height:16px; flex:0 0 16px; border-radius:50%;
+    border:2px solid rgba(201,162,39,.25); border-top-color:var(--gold);
+    animation:girar .9s linear infinite;
+  }
+  @keyframes girar{to{transform:rotate(360deg)}}
   footer{padding:14px 20px 40px; text-align:center; color:var(--muted); font-size:13px}
   code{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold)}
 </style>
@@ -903,7 +913,8 @@ function trocarAba(id){
    6-C. ETAPA 3 — CAMADA DE IA (Worker + Claude)
    ========================================================================== */
 const MODELO = 'claude-sonnet-5';   // a escolha de layout exige julgamento editorial
-const MAX_CHARS_LOTE = 22000;       // teto de texto por chamada
+const MAX_TOKENS = 16000;           // roteiro completo com notas do orador não cabe em 8000
+const MAX_CHARS_LOTE = 12000;       // teto de texto por chamada
 
 /* --- 6C.1 catálogo de campos (fonte única, alinhada à biblioteca) --- */
 const CAMPOS = {
@@ -1071,80 +1082,138 @@ async function chamarIA(sistema, pedido, tentativa){
   const url = (document.getElementById('workerUrl').value || '').trim();
   if (!url) throw new Error('Informe a URL do Worker.');
 
-  const mensagens = [{ role:'user', content: pedido }];
-  if (tentativa > 1) {
-    mensagens.push({ role:'assistant', content:'{' });   // força continuação em JSON
-  }
+  if (tentativa > 1) fase('Refazendo (tentativa ' + tentativa + ' de 3)…');
 
   const r = await fetch(url, {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ model:MODELO, max_tokens:8000, system:sistema, messages:mensagens })
+    body: JSON.stringify({ model:MODELO, max_tokens:MAX_TOKENS, system:sistema,
+                           messages:[{ role:'user', content: pedido }] })
   });
   const dados = await r.json();
   if (!r.ok || dados.error) throw new Error((dados.error && dados.error.message) || dados.erro || ('HTTP ' + r.status));
 
-  let bruto = (dados.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
-  if (tentativa > 1) bruto = '{' + bruto;
+  // resposta cortada por limite de tokens: fatiar em pedaços menores resolve
+  if (dados.stop_reason === 'max_tokens') throw new Error('TRUNCADO');
 
+  const bruto = (dados.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+
+  fase('Validando o roteiro recebido…');
   try {
     const obj = extrairJSON(bruto);
     const erros = conferirContrato(obj);
     if (erros.length && tentativa < 3) throw new Error(erros.slice(0,4).join(' · '));
     return { obj, erros };
   } catch(e) {
+    if (e.message === 'TRUNCADO') throw e;
     if (tentativa >= 3) throw new Error('A IA não devolveu JSON válido após 3 tentativas. ' + e.message);
     const correcao = pedido +
-      `\n\nATENÇÃO: a tentativa anterior falhou (${e.message}). Devolva SOMENTE o objeto JSON,` +
-      ` começando em { e terminando em }, usando apenas os ids de layout listados.`;
+      `\n\nATENÇÃO: a tentativa anterior falhou (${e.message}). Responda SOMENTE com o objeto JSON,` +
+      ` começando no caractere { e terminando em }, sem nenhum texto antes ou depois,` +
+      ` usando apenas os ids de layout listados.`;
     return chamarIA(sistema, correcao, tentativa + 1);
   }
 }
 
-/* --- 6C.8 orquestração --- */
+/* --- 6C.8 painel de progresso --- */
+let _crono = null, _t0 = 0, _fase = '', _passo = '';
+
+function mostrarProgresso(){
+  const seg = Math.floor((Date.now() - _t0) / 1000);
+  const mm = String(Math.floor(seg/60)).padStart(2,'0'), ss = String(seg%60).padStart(2,'0');
+  document.getElementById('progresso').innerHTML =
+    `<div class="andando">
+       <div class="linha"><span class="giro"></span>
+         <span class="passo">${_passo}</span>
+         <span class="relogio">${mm}:${ss}</span></div>
+       <div class="fase">${_fase}</div>
+     </div>`;
+}
+function iniciarCrono(){ _t0 = Date.now(); clearInterval(_crono); _crono = setInterval(mostrarProgresso, 1000); }
+function pararCrono(){ clearInterval(_crono); _crono = null; }
+function passo(t){ _passo = t; mostrarProgresso(); }
+function fase(t){ _fase = t; mostrarProgresso(); }
+
+/* --- 6C.9 orquestração --- */
 async function gerarRoteiroIA(){
   if (!EXTRACAO) { alert('Carregue um documento primeiro (aba 1).'); return; }
   const btn = document.getElementById('btnIA');
-  const prog = document.getElementById('progresso');
   btn.disabled = true;
+  btn.textContent = 'Trabalhando…';
 
   const sistema = promptSistema(EXTRACAO.perfil);
-  const lotes = fatiar(EXTRACAO);
+  const fila = fatiar(EXTRACAO);
+  const total = fila.length;
   const roteiro = { titulo:'', subtitulo:'', serie:'', avisos:[], slides:[] };
   const problemas = [];
+  let feitos = 0, primeiro = true;
 
+  iniciarCrono();
   try {
-    for (let i = 0; i < lotes.length; i++){
-      const l = lotes[i];
-      prog.innerHTML = `<div class="andando">Estruturando ${i+1} de ${lotes.length} — ${l.rotulo}…</div>`;
+    while (fila.length) {
+      const l = fila.shift();
+      passo(`Trecho ${feitos+1}${total>1 ? ' de ' + Math.max(total, feitos + 1 + fila.length) : ''} — ${l.rotulo}`);
+      fase('Enviando ao Claude e aguardando o roteiro… isso costuma levar de 30 a 90 segundos.');
 
-      const contexto = lotes.length > 1
-        ? `Este é o trecho ${i+1} de ${lotes.length} do documento "${EXTRACAO.arquivo}".` +
-          (i > 0 ? ' NÃO gere slide de capa: ele já foi criado no primeiro trecho.' : '')
+      const contexto = (total > 1 || !primeiro)
+        ? `Este é um trecho do documento "${EXTRACAO.arquivo}".` +
+          (primeiro ? '' : ' NÃO gere slide de capa: ele já foi criado antes.')
         : `Documento: "${EXTRACAO.arquivo}".`;
-
       const pedido = `${contexto}\nPerfil detectado: ${EXTRACAO.perfil}.\n\n--- DOCUMENTO ---\n${textoMarcado(l.blocos)}\n--- FIM ---`;
-      const { obj, erros } = await chamarIA(sistema, pedido);
 
-      if (i === 0){ roteiro.titulo = obj.titulo || EXTRACAO.arquivo; roteiro.subtitulo = obj.subtitulo || ''; roteiro.serie = obj.serie || ''; }
+      let resposta;
+      try {
+        resposta = await chamarIA(sistema, pedido);
+      } catch(e) {
+        // resposta cortada: parte o trecho ao meio e devolve os dois à fila
+        if (e.message === 'TRUNCADO' && l.blocos.length > 3) {
+          const meio = Math.ceil(l.blocos.length / 2);
+          fase('Trecho longo demais para uma resposta só. Dividindo em dois e continuando…');
+          fila.unshift({ rotulo: l.rotulo + ' (parte 2)', blocos: l.blocos.slice(meio) });
+          fila.unshift({ rotulo: l.rotulo + ' (parte 1)', blocos: l.blocos.slice(0, meio) });
+          continue;
+        }
+        throw e;
+      }
+
+      const { obj, erros } = resposta;
+      if (primeiro){
+        roteiro.titulo = obj.titulo || EXTRACAO.arquivo.replace(/\.docx$/i,'');
+        roteiro.subtitulo = obj.subtitulo || '';
+        roteiro.serie = obj.serie || '';
+        primeiro = false;
+      }
       (obj.avisos || []).forEach(a => roteiro.avisos.push(a));
       (obj.slides || []).forEach(s => {
-        if (i > 0 && s.layout === 'capa') return;      // capa só no primeiro trecho
+        if (roteiro.slides.some(x => x.layout === 'capa') && s.layout === 'capa') return;
         roteiro.slides.push(s);
       });
       erros.forEach(e => problemas.push(`${l.rotulo}: ${e}`));
+      feitos++;
+
+      // resultado parcial já visível: se algo falhar adiante, o trabalho não se perde
+      document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
+      listar(roteiro);
+      fase(`${roteiro.slides.length} slides prontos até aqui.`);
     }
 
     problemas.forEach(p => roteiro.avisos.push('Conferir manualmente — ' + p));
     document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
     validar(true);
-    prog.innerHTML = `<div class="aviso ok">Roteiro pronto: ${roteiro.slides.length} slides em ${lotes.length} chamada(s). Confira na aba 2 antes de gerar.</div>`;
+    pararCrono();
+    const seg = Math.floor((Date.now() - _t0)/1000);
+    document.getElementById('progresso').innerHTML =
+      `<div class="aviso ok">Roteiro pronto: <b>${roteiro.slides.length} slides</b> em ${feitos} chamada(s), ${seg}s. Confira na aba 2 antes de gerar.</div>`;
     trocarAba('roteiro');
   } catch(e){
     console.error(e);
-    prog.innerHTML = `<div class="aviso erro">${e.message}</div>`;
+    pararCrono();
+    const parcial = roteiro.slides.length ? ` Os ${roteiro.slides.length} slides já obtidos ficaram na aba 2.` : '';
+    document.getElementById('progresso').innerHTML =
+      `<div class="aviso erro">${e.message === 'TRUNCADO' ? 'A resposta da IA foi cortada e o trecho não pôde ser dividido mais.' : e.message}${parcial}</div>`;
   } finally {
     btn.disabled = false;
+    btn.textContent = 'Gerar roteiro com IA';
   }
 }
 
