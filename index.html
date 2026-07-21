@@ -158,7 +158,7 @@ const txt = (o) => Object.assign({
 function eyebrow(slide, texto, x, y, w){
   if (!texto) return;
   slide.addText(String(texto).toUpperCase(), txt({
-    x:x, y:y, w:w||8.0, h:0.35, fontFace:FT, fontSize:14, bold:true,
+    x:x, y:y, w:w||8.0, h:0.40, fontFace:FT, fontSize:16, bold:true,
     color:C.GOLD, charSpacing:5
   }));
 }
@@ -166,7 +166,7 @@ function faixaRemate(slide, texto, x, y, w, h){
   if (!texto) return;
   slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.GOLD}, rectRadius:0.1, line:{color:C.GOLD} });
   slide.addText(String(texto), txt({
-    x:x+0.35, y:y, w:w-0.7, h:h, fontSize:20, bold:true, color:C.NAVY,
+    x:x+0.35, y:y, w:w-0.7, h:h, fontSize:22, bold:true, color:C.NAVY,
     align:'center', valign:'middle'
   }));
 }
@@ -174,10 +174,10 @@ function cartao(slide, x, y, w, h){
   slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.CARD}, rectRadius:0.1, line:{color:'24344F'} });
 }
 function circuloNum(slide, n, x, y, d){
-  d = d || 0.5;
+  d = d || 0.56;
   slide.addShape('ellipse', { x:x, y:y, w:d, h:d, fill:{color:C.NAVY}, line:{color:C.GOLD, width:1.25} });
   slide.addText(String(n), txt({
-    x:x, y:y, w:d, h:d, fontFace:FT, fontSize:15, bold:true, color:C.GOLD,
+    x:x, y:y, w:d, h:d, fontFace:FT, fontSize:17, bold:true, color:C.GOLD,
     align:'center', valign:'middle'
   }));
 }
@@ -187,7 +187,7 @@ function bullets(slide, itens, o){
     options: { bullet:{ code:'2022' }, paraSpaceAfter:12 }
   }));
   if (!linhas.length) return;
-  slide.addText(linhas, txt(Object.assign({ fontSize:19, lineSpacing:26 }, o)));
+  slide.addText(linhas, txt(Object.assign({ fontSize:21, lineSpacing:28, fit:'shrink' }, o)));
 }
 
 /* ==========================================================================
@@ -203,7 +203,7 @@ LAYOUTS.capa = (s, f) => {
   if (f.linha1) s.addText(f.linha1, txt({ x:0.85, y:2.15, w:9.0, h:1.0, fontFace:FT, fontSize:52, bold:true, color:C.CREAM }));
   if (f.linha2) s.addText(f.linha2, txt({ x:0.85, y:3.10, w:9.0, h:1.0, fontFace:FT, fontSize:52, bold:true, color:C.GOLD }));
   if (f.subtitulo) s.addText(f.subtitulo, txt({ x:0.9, y:4.35, w:7.6, h:0.9, fontSize:24, italic:true, color:C.MUTED }));
-  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:0.9, y:6.40, w:6.0, h:0.35, fontSize:13, color:C.MUTED, charSpacing:4 }));
+  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:0.9, y:6.40, w:6.0, h:0.38, fontSize:15, color:C.MUTED, charSpacing:4 }));
   s.addShape('rect', { x:0.9, y:6.15, w:1.6, h:0.045, fill:{color:C.GOLD}, line:{color:C.GOLD} });
 };
 
@@ -211,11 +211,11 @@ LAYOUTS.declaracao = (s, f) => {
   fundo(s, 'centro');
   let y = 1.20;
   (f.antetitulo||[]).forEach(t => {
-    s.addText(String(t).toUpperCase(), txt({ x:M, y:y, w:WU, h:0.34, fontFace:FT, fontSize:13, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
-    y += 0.40;
+    s.addText(String(t).toUpperCase(), txt({ x:M, y:y, w:WU, h:0.38, fontFace:FT, fontSize:15, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
+    y += 0.44;
   });
   if (f.frase) s.addText(f.frase, txt({ x:M, y:y+0.25, w:WU, h:3.0, fontFace:FT, fontSize:40, bold:true, color:C.CREAM, align:'center', lineSpacing:48 }));
-  if (f.apoio) s.addText(f.apoio, txt({ x:1.9, y:5.55, w:9.5, h:1.1, fontSize:21, italic:true, color:C.MUTED, align:'center' }));
+  if (f.apoio) s.addText(f.apoio, txt({ x:1.9, y:5.45, w:9.5, h:1.2, fontSize:23, italic:true, color:C.MUTED, align:'center' }));
 };
 
 LAYOUTS.roteiro = (s, f) => {
@@ -224,10 +224,10 @@ LAYOUTS.roteiro = (s, f) => {
   s.addShape('rect', { x:M, y:1.85, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
   const itens = f.itens || [];
   let y = 2.25;
-  const alt = Math.min(1.05, (BASE - 2.35) / Math.max(itens.length,1));
+  const alt = Math.min(1.15, (BASE - 2.35) / Math.max(itens.length,1));
   itens.forEach((it,i) => {
-    circuloNum(s, it.num != null ? it.num : (i+1), M, y, 0.48);
-    s.addText(String(it.texto||''), txt({ x:M+0.75, y:y+0.02, w:WU-0.85, h:alt-0.1, fontSize:22, color:C.CREAM }));
+    circuloNum(s, it.num != null ? it.num : (i+1), M, y, 0.56);
+    s.addText(String(it.texto||''), txt({ x:M+0.82, y:y+0.02, w:WU-0.92, h:alt-0.1, fontSize:24, color:C.CREAM }));
     y += alt;
   });
 };
@@ -236,14 +236,14 @@ LAYOUTS.ponto = (s, f) => {
   fundo(s, 'liso');
   s.addShape('rect', { x:0, y:0, w:4.6, h:7.5, fill:{color:C.DEEP}, line:{color:C.DEEP} });
   s.addShape('rect', { x:4.6, y:0, w:0.05, h:7.5, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-  if (f.num != null) s.addText('PONTO ' + f.num, txt({ x:0.75, y:1.35, w:3.4, h:0.35, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, charSpacing:4 }));
+  if (f.num != null) s.addText('PONTO ' + f.num, txt({ x:0.75, y:1.35, w:3.4, h:0.40, fontFace:FT, fontSize:16, bold:true, color:C.GOLD, charSpacing:4 }));
   if (f.titulo) s.addText(f.titulo, txt({ x:0.75, y:1.90, w:3.5, h:3.2, fontFace:FT, fontSize:27, bold:true, color:C.CREAM, lineSpacing:32 }));
-  if (f.afirmacao) s.addText(f.afirmacao, txt({ x:5.5, y:1.00, w:6.9, h:1.5, fontFace:FT, fontSize:21, bold:true, color:C.GOLD, lineSpacing:26 }));
-  bullets(s, f.corpo, { x:5.5, y:2.60, w:6.9, h:2.5, fontSize:19, color:C.CREAM });
+  if (f.afirmacao) s.addText(f.afirmacao, txt({ x:5.5, y:1.00, w:6.9, h:1.5, fontFace:FT, fontSize:22, bold:true, color:C.GOLD, lineSpacing:28 }));
+  bullets(s, f.corpo, { x:5.5, y:2.60, w:6.9, h:2.45, fontSize:21, color:C.CREAM });
   if (f.ref || f.sigla) {
     cartao(s, 5.5, 5.25, 6.9, 1.6);
-    if (f.ref) s.addText(f.ref, txt({ x:5.75, y:5.45, w:6.4, h:0.95, fontSize:18, italic:true, color:C.CREAM, lineSpacing:23 }));
-    if (f.sigla) s.addText(String(f.sigla).toUpperCase(), txt({ x:5.75, y:6.45, w:6.4, h:0.3, fontSize:13, bold:true, color:C.GOLD, charSpacing:3 }));
+    if (f.ref) s.addText(f.ref, txt({ x:5.75, y:5.42, w:6.4, h:1.0, fontSize:19, italic:true, color:C.CREAM, lineSpacing:25, fit:'shrink' }));
+    if (f.sigla) s.addText(String(f.sigla).toUpperCase(), txt({ x:5.75, y:6.45, w:6.4, h:0.32, fontSize:15, bold:true, color:C.GOLD, charSpacing:3 }));
   }
 };
 
@@ -261,11 +261,11 @@ LAYOUTS.contraste = (s, f) => {
   const lados = [['esq', M], ['dir', 6.95]];
   lados.forEach(([k,x]) => {
     const d = f[k] || {};
-    cartao(s, x, 2.05, 5.45, 2.85);
-    if (d.rotulo) s.addText(String(d.rotulo).toUpperCase(), txt({ x:x+0.35, y:2.35, w:4.75, h:0.35, fontFace:FT, fontSize:15, bold:true, color:C.GOLD, charSpacing:3 }));
-    if (d.texto) s.addText(d.texto, txt({ x:x+0.35, y:2.90, w:4.75, h:1.8, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+    cartao(s, x, 2.05, 5.45, 3.00);
+    if (d.rotulo) s.addText(String(d.rotulo).toUpperCase(), txt({ x:x+0.35, y:2.32, w:4.75, h:0.40, fontFace:FT, fontSize:17, bold:true, color:C.GOLD, charSpacing:3 }));
+    if (d.texto) s.addText(d.texto, txt({ x:x+0.35, y:2.90, w:4.75, h:1.95, fontSize:21, color:C.CREAM, lineSpacing:27, fit:'shrink' }));
   });
-  faixaRemate(s, f.remate, M, 5.30, WU, 1.0);
+  faixaRemate(s, f.remate, M, 5.40, WU, 1.05);
 };
 
 LAYOUTS.cards3 = (s, f) => {
@@ -277,8 +277,8 @@ LAYOUTS.cards3 = (s, f) => {
     const x = M + i*(larg+0.3);
     cartao(s, x, 2.15, larg, 3.6);
     circuloNum(s, it.num != null ? it.num : (i+1), x+0.35, 2.45, 0.5);
-    if (it.titulo) s.addText(it.titulo, txt({ x:x+0.35, y:3.15, w:larg-0.7, h:0.75, fontFace:FT, fontSize:19, bold:true, color:C.CREAM }));
-    if (it.texto) s.addText(it.texto, txt({ x:x+0.35, y:3.95, w:larg-0.7, h:1.65, fontSize:18, color:C.MUTED, lineSpacing:23 }));
+    if (it.titulo) s.addText(it.titulo, txt({ x:x+0.35, y:3.15, w:larg-0.7, h:0.78, fontFace:FT, fontSize:20, bold:true, color:C.CREAM }));
+    if (it.texto) s.addText(it.texto, txt({ x:x+0.35, y:4.00, w:larg-0.7, h:1.70, fontSize:20, color:C.MUTED, lineSpacing:26, fit:'shrink' }));
   });
 };
 
@@ -288,10 +288,10 @@ LAYOUTS.chips = (s, f) => {
   if (f.subtitulo) s.addText(f.subtitulo, txt({ x:M, y:1.75, w:WU, h:0.5, fontSize:20, italic:true, color:C.MUTED }));
   let x = M, y = 2.60;
   (f.chips||[]).forEach(t => {
-    const w = Math.min(5.2, 0.55 + String(t).length * 0.135);
-    if (x + w > M + WU) { x = M; y += 0.78; }
-    s.addShape('roundRect', { x:x, y:y, w:w, h:0.6, fill:{color:C.CARD}, rectRadius:0.3, line:{color:C.GOLD, width:0.75} });
-    s.addText(String(t), txt({ x:x, y:y, w:w, h:0.6, fontSize:18, color:C.CREAM, align:'center', valign:'middle' }));
+    const w = Math.min(5.4, 0.60 + String(t).length * 0.150);
+    if (x + w > M + WU) { x = M; y += 0.86; }
+    s.addShape('roundRect', { x:x, y:y, w:w, h:0.68, fill:{color:C.CARD}, rectRadius:0.34, line:{color:C.GOLD, width:0.75} });
+    s.addText(String(t), txt({ x:x, y:y, w:w, h:0.68, fontSize:20, color:C.CREAM, align:'center', valign:'middle' }));
     x += w + 0.25;
   });
   faixaRemate(s, f.remate, M, 5.75, WU, 0.9);
@@ -303,10 +303,10 @@ LAYOUTS.perguntas = (s, f) => {
   if (f.titulo) s.addText(f.titulo, txt({ x:M, y:1.40, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.CREAM }));
   const itens = f.itens || [];
   let y = 2.50;
-  const alt = Math.min(1.05, (BASE - 2.60) / Math.max(itens.length,1));
+  const alt = Math.min(1.18, (BASE - 2.60) / Math.max(itens.length,1));
   itens.forEach((t,i) => {
-    circuloNum(s, i+1, M, y, 0.5);
-    s.addText(String(t), txt({ x:M+0.78, y:y+0.03, w:WU-0.88, h:alt-0.1, fontSize:20, color:C.CREAM, lineSpacing:25 }));
+    circuloNum(s, i+1, M, y, 0.56);
+    s.addText(String(t), txt({ x:M+0.82, y:y+0.03, w:WU-0.92, h:alt-0.1, fontSize:22, color:C.CREAM, lineSpacing:28, fit:'shrink' }));
     y += alt;
   });
 };
@@ -317,11 +317,11 @@ LAYOUTS.cartoes = (s, f) => {
   if (f.titulo) s.addText(f.titulo, txt({ x:M, y:1.40, w:WU, h:0.75, fontFace:FT, fontSize:30, bold:true, color:C.GOLD }));
   const itens = (f.itens||[]).slice(0,4);
   let y = 2.40;
-  const alt = Math.min(1.35, (BASE - 2.45) / Math.max(itens.length,1) - 0.14);
+  const alt = Math.min(1.45, (BASE - 2.45) / Math.max(itens.length,1) - 0.14);
   itens.forEach(t => {
     cartao(s, M, y, WU, alt);
     s.addShape('rect', { x:M, y:y, w:0.06, h:alt, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-    s.addText(String(t), txt({ x:M+0.35, y:y+0.15, w:WU-0.7, h:alt-0.3, fontSize:18, color:C.CREAM, lineSpacing:23, valign:'middle' }));
+    s.addText(String(t), txt({ x:M+0.35, y:y+0.12, w:WU-0.7, h:alt-0.24, fontSize:20, color:C.CREAM, lineSpacing:26, fit:'shrink', valign:'middle' }));
     y += alt + 0.14;
   });
 };
@@ -330,15 +330,15 @@ LAYOUTS.versiculo = (s, f) => {
   fundo(s, 'centro');
   eyebrow(s, f.eyebrow || 'Palavra', 0.9, 1.15, 8.0);
   if (f.texto) s.addText('“' + f.texto + '”', txt({ x:0.9, y:2.00, w:11.0, h:3.0, fontFace:FT, fontSize:40, bold:true, color:C.CREAM, lineSpacing:48, align:'center' }));
-  if (f.ref) s.addText(String(f.ref).toUpperCase(), txt({ x:0.9, y:5.30, w:11.0, h:0.45, fontSize:17, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
+  if (f.ref) s.addText(String(f.ref).toUpperCase(), txt({ x:0.9, y:5.30, w:11.0, h:0.48, fontSize:19, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
 };
 
 LAYOUTS.texto_longo = (s, f) => {
   fundo(s, 'liso');
   eyebrow(s, f.eyebrow, M, 0.95, 8.0);
-  if (f.bloco1) s.addText(f.bloco1, txt({ x:M, y:1.60, w:5.45, h:4.9, fontSize:19, color:C.CREAM, lineSpacing:26 }));
-  if (f.bloco2) s.addText(f.bloco2, txt({ x:6.95, y:1.60, w:5.45, h:4.9, fontSize:19, color:C.CREAM, lineSpacing:26 }));
-  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:M, y:6.70, w:WU, h:0.35, fontSize:13, color:C.MUTED, charSpacing:4 }));
+  if (f.bloco1) s.addText(f.bloco1, txt({ x:M, y:1.60, w:5.45, h:4.9, fontSize:21, color:C.CREAM, lineSpacing:28, fit:'shrink' }));
+  if (f.bloco2) s.addText(f.bloco2, txt({ x:6.95, y:1.60, w:5.45, h:4.9, fontSize:21, color:C.CREAM, lineSpacing:28, fit:'shrink' }));
+  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:M, y:6.68, w:WU, h:0.38, fontSize:15, color:C.MUTED, charSpacing:4 }));
 };
 
 /* --- 4.2 novos: exigidos pelo sermão ----------------------------------- */
@@ -349,13 +349,13 @@ LAYOUTS.leitura_biblica = (s, f) => {
   s.addShape('rect', { x:M, y:1.42, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
   const vs = f.versiculos || [];
   let y = 1.75;
-  const alt = Math.min(1.20, (BASE - 1.85) / Math.max(vs.length,1));
+  const alt = Math.min(1.30, (BASE - 1.85) / Math.max(vs.length,1));
   vs.forEach(v => {
-    s.addText(String(v.n), txt({ x:M, y:y, w:0.45, h:0.4, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, align:'right' }));
-    s.addText(String(v.texto||''), txt({ x:M+0.60, y:y-0.06, w:WU-0.70, h:alt-0.05, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+    s.addText(String(v.n), txt({ x:M, y:y, w:0.48, h:0.4, fontFace:FT, fontSize:16, bold:true, color:C.GOLD, align:'right' }));
+    s.addText(String(v.texto||''), txt({ x:M+0.66, y:y-0.06, w:WU-0.76, h:alt-0.05, fontSize:20, color:C.CREAM, lineSpacing:27, fit:'shrink' }));
     y += alt;
   });
-  if (f.continua) s.addText('(continua)', txt({ x:M, y:6.85, w:3.0, h:0.3, fontSize:14, italic:true, color:C.MUTED }));
+  if (f.continua) s.addText('(continua)', txt({ x:M, y:6.82, w:3.0, h:0.33, fontSize:16, italic:true, color:C.MUTED }));
 };
 
 LAYOUTS.cascata = (s, f) => {
@@ -367,7 +367,7 @@ LAYOUTS.cascata = (s, f) => {
   let y = Math.max(1.35, (7.5 - n*alt) / 2);
   fr.forEach((t,i) => {
     const destaque = (i === enf);
-    const tam = destaque ? 34 : Math.min(30, 20 + i*3);
+    const tam = destaque ? 38 : Math.min(34, 24 + i*4);
     s.addText(String(t), txt({
       x:M + i*0.35, y:y, w:WU - i*0.35, h:alt,
       fontFace:FT, fontSize:tam, bold:destaque || i>0,
@@ -382,10 +382,10 @@ LAYOUTS.recapitulacao = (s, f) => {
   if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.GOLD }));
   const ls = f.linhas || [];
   let y = 2.20;
-  const alt = Math.min(1.0, (BASE - 2.30) / Math.max(ls.length,1));
+  const alt = Math.min(1.08, (BASE - 2.30) / Math.max(ls.length,1));
   ls.forEach(t => {
     s.addShape('rect', { x:M, y:y+0.22, w:0.28, h:0.035, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-    s.addText(String(t), txt({ x:M+0.55, y:y, w:WU-0.65, h:alt-0.08, fontSize:23, color:C.CREAM, lineSpacing:29 }));
+    s.addText(String(t), txt({ x:M+0.55, y:y, w:WU-0.65, h:alt-0.08, fontSize:25, color:C.CREAM, lineSpacing:31, fit:'shrink' }));
     y += alt;
   });
 };
@@ -396,29 +396,29 @@ LAYOUTS.contraste_termos = (s, f) => {
   const lados = [[f.termoA, M], [f.termoB, 6.95]];
   lados.forEach(([d,x]) => {
     d = d || {};
-    cartao(s, x, 2.00, 5.45, 2.70);
+    cartao(s, x, 2.00, 5.45, 2.90);
     if (d.palavra) s.addText(d.palavra, txt({ x:x+0.3, y:2.30, w:4.85, h:0.8, fontFace:FT, fontSize:28, bold:true, color:C.CREAM, align:'center' }));
-    if (d.glosa) s.addText(d.glosa, txt({ x:x+0.3, y:3.20, w:4.85, h:1.35, fontSize:18, italic:true, color:C.MUTED, align:'center', lineSpacing:23 }));
+    if (d.glosa) s.addText(d.glosa, txt({ x:x+0.3, y:3.20, w:4.85, h:1.55, fontSize:20, italic:true, color:C.MUTED, align:'center', lineSpacing:26, fit:'shrink' }));
   });
   s.addText('×', txt({ x:6.10, y:3.05, w:0.75, h:0.6, fontFace:FT, fontSize:26, bold:true, color:C.GOLD, align:'center' }));
-  if (f.sintese) s.addText(f.sintese, txt({ x:M, y:5.15, w:WU, h:1.4, fontSize:21, color:C.CREAM, align:'center', lineSpacing:28 }));
+  if (f.sintese) s.addText(f.sintese, txt({ x:M, y:5.25, w:WU, h:1.4, fontSize:23, color:C.CREAM, align:'center', lineSpacing:30 }));
 };
 
 LAYOUTS.apelo = (s, f) => {
   fundo(s, 'inferior');
   eyebrow(s, f.eyebrow || 'Apelo', M, 1.30, WU);
   if (f.pergunta) s.addText(f.pergunta, txt({ x:1.2, y:2.20, w:10.9, h:2.6, fontFace:FT, fontSize:38, bold:true, color:C.CREAM, align:'center', lineSpacing:46 }));
-  if (f.apoio) s.addText(f.apoio, txt({ x:2.1, y:5.10, w:9.1, h:1.2, fontSize:22, italic:true, color:C.GOLD, align:'center', lineSpacing:28 }));
+  if (f.apoio) s.addText(f.apoio, txt({ x:2.1, y:5.10, w:9.1, h:1.25, fontSize:24, italic:true, color:C.GOLD, align:'center', lineSpacing:28 }));
 };
 
 /* --- 4.3 novos: exigidos pela apostila do MENTOR ------------------------ */
 
 LAYOUTS.divisor_secao = (s, f) => {
   fundo(s, 'centro');
-  if (f.rotulo) s.addText(String(f.rotulo).toUpperCase(), txt({ x:M, y:1.45, w:WU, h:0.4, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, charSpacing:5 }));
+  if (f.rotulo) s.addText(String(f.rotulo).toUpperCase(), txt({ x:M, y:1.45, w:WU, h:0.44, fontFace:FT, fontSize:16, bold:true, color:C.GOLD, charSpacing:5 }));
   if (f.numero != null) s.addText(String(f.numero), txt({ x:M, y:1.90, w:3.0, h:2.4, fontFace:FT, fontSize:110, bold:true, color:C.GOLD }));
   if (f.titulo) s.addText(f.titulo, txt({ x:4.05, y:2.35, w:8.3, h:1.7, fontFace:FT, fontSize:38, bold:true, color:C.CREAM, lineSpacing:46 }));
-  if (f.resumo) s.addText(f.resumo, txt({ x:4.05, y:4.25, w:8.3, h:1.6, fontSize:20, italic:true, color:C.MUTED, lineSpacing:26 }));
+  if (f.resumo) s.addText(f.resumo, txt({ x:4.05, y:4.25, w:8.3, h:1.7, fontSize:22, italic:true, color:C.MUTED, lineSpacing:28 }));
   s.addShape('rect', { x:3.75, y:1.95, w:0.04, h:3.6, fill:{color:C.GOLD}, line:{color:C.GOLD} });
 };
 
@@ -427,8 +427,8 @@ LAYOUTS.citacao_autor = (s, f) => {
   s.addText('“', txt({ x:M, y:0.90, w:1.2, h:1.2, fontFace:FT, fontSize:80, bold:true, color:C.GOLD }));
   if (f.citacao) s.addText(f.citacao, txt({ x:M+1.05, y:1.55, w:WU-1.05, h:3.1, fontSize:26, italic:true, color:C.CREAM, lineSpacing:34 }));
   s.addShape('rect', { x:M+1.05, y:5.05, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-  if (f.autor) s.addText(String(f.autor).toUpperCase(), txt({ x:M+1.05, y:5.30, w:WU-1.05, h:0.4, fontFace:FT, fontSize:16, bold:true, color:C.GOLD, charSpacing:3 }));
-  if (f.obra) s.addText(f.obra, txt({ x:M+1.05, y:5.75, w:WU-1.05, h:0.5, fontSize:18, italic:true, color:C.MUTED }));
+  if (f.autor) s.addText(String(f.autor).toUpperCase(), txt({ x:M+1.05, y:5.28, w:WU-1.05, h:0.44, fontFace:FT, fontSize:18, bold:true, color:C.GOLD, charSpacing:3 }));
+  if (f.obra) s.addText(f.obra, txt({ x:M+1.05, y:5.78, w:WU-1.05, h:0.55, fontSize:20, italic:true, color:C.MUTED }));
 };
 
 LAYOUTS.definicao = (s, f) => {
@@ -441,12 +441,12 @@ LAYOUTS.definicao = (s, f) => {
       cartao(s, x, 1.90, 5.45, 3.9);
       if (tm) s.addText(tm, txt({ x:x+0.35, y:2.20, w:4.75, h:0.85, fontFace:FT, fontSize:30, bold:true, color: i===0 ? C.GOLD : C.MUTED }));
       s.addShape('rect', { x:x+0.35, y:3.10, w:1.1, h:0.035, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-      if (df) s.addText(df, txt({ x:x+0.35, y:3.35, w:4.75, h:2.2, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+      if (df) s.addText(df, txt({ x:x+0.35, y:3.35, w:4.75, h:2.25, fontSize:21, color:C.CREAM, lineSpacing:27, fit:'shrink' }));
     });
   } else {
     if (f.termo) s.addText(f.termo, txt({ x:M, y:1.55, w:WU, h:1.1, fontFace:FT, fontSize:46, bold:true, color:C.GOLD }));
     s.addShape('rect', { x:M, y:2.80, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
-    if (f.definicao) s.addText(f.definicao, txt({ x:M, y:3.15, w:WU, h:3.0, fontSize:24, color:C.CREAM, lineSpacing:32 }));
+    if (f.definicao) s.addText(f.definicao, txt({ x:M, y:3.15, w:WU, h:3.0, fontSize:26, color:C.CREAM, lineSpacing:34, fit:'shrink' }));
   }
 };
 
@@ -458,11 +458,11 @@ LAYOUTS.tabela = (s, f) => {
   if (!cols.length) return;
   const cabec = cols.map(c => ({
     text: String(c).toUpperCase(),
-    options: { fontFace:FT, fontSize:14, bold:true, color:C.NAVY, fill:{color:C.GOLD}, valign:'middle', margin:6 }
+    options: { fontFace:FT, fontSize:16, bold:true, color:C.NAVY, fill:{color:C.GOLD}, valign:'middle', margin:8 }
   }));
   const corpo = linhas.map((ln, i) => ln.map(cel => ({
     text: String(cel == null ? '' : cel),
-    options: { fontFace:FB, fontSize:17, color:C.CREAM, fill:{color: i%2 ? C.CARD : '12203A'}, valign:'middle', margin:6 }
+    options: { fontFace:FB, fontSize:19, color:C.CREAM, fill:{color: i%2 ? C.CARD : '12203A'}, valign:'middle', margin:8 }
   })));
   const lg = WU / cols.length;
   s.addTable([cabec].concat(corpo), {
@@ -481,8 +481,8 @@ LAYOUTS.metodo_etapas = (s, f) => {
     const x = M + i*(larg+0.35);
     cartao(s, x, 2.20, larg, 3.4);
     circuloNum(s, e.num != null ? e.num : (i+1), x + larg/2 - 0.29, 2.50, 0.58);
-    if (e.titulo) s.addText(e.titulo, txt({ x:x+0.25, y:3.25, w:larg-0.5, h:0.75, fontFace:FT, fontSize:18, bold:true, color:C.CREAM, align:'center' }));
-    if (e.texto) s.addText(e.texto, txt({ x:x+0.25, y:4.05, w:larg-0.5, h:1.4, fontSize:17, color:C.MUTED, align:'center', lineSpacing:22 }));
+    if (e.titulo) s.addText(e.titulo, txt({ x:x+0.25, y:3.25, w:larg-0.5, h:0.78, fontFace:FT, fontSize:20, bold:true, color:C.CREAM, align:'center' }));
+    if (e.texto) s.addText(e.texto, txt({ x:x+0.25, y:4.10, w:larg-0.5, h:1.45, fontSize:19, color:C.MUTED, align:'center', lineSpacing:24, fit:'shrink' }));
     if (i < et.length-1) {
       s.addText('›', txt({ x:x+larg+0.02, y:3.55, w:0.31, h:0.5, fontFace:FT, fontSize:24, bold:true, color:C.GOLD, align:'center' }));
     }
