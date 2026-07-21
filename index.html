@@ -9,175 +9,242 @@
 <title>Gerador de Apresentações · Igreja Vidas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
 <style>
   :root{
-    --navy:#0F1B33; --deep:#0A1425; --gold:#C9A227; --cream:#F2EDE3;
-    --muted:#9FB0C9; --card:#16253F;
+    --bg:#0F1B33; --deep:#0A1425; --card:#16253F; --linha:#22304C;
+    --accent:#C9A227; --texto:#F2EDE3; --muted:#93A4BE;
+    --raio:14px; --sombra:0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.22);
   }
   *{box-sizing:border-box}
   body{
-    margin:0; background:var(--navy); color:var(--cream);
-    font-family:'Cormorant Garamond',Georgia,serif; font-size:17px;
+    margin:0; background:var(--deep); color:var(--texto);
+    font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    font-size:15px; line-height:1.55; -webkit-font-smoothing:antialiased;
+    transition:background .35s ease, color .35s ease;
   }
-  header{
-    padding:22px 20px 16px; border-bottom:1px solid #24344f;
-    background:linear-gradient(140deg,#0F1B33,#0A1425);
+  ::selection{background:var(--accent); color:var(--deep)}
+
+  .topo{
+    display:flex; align-items:center; justify-content:space-between; gap:20px;
+    padding:18px 28px; background:var(--bg); border-bottom:1px solid var(--linha);
+    position:sticky; top:0; z-index:20;
   }
-  h1{
-    font-family:'Cinzel',serif; font-size:24px; margin:0 0 4px; color:var(--gold);
-    letter-spacing:.5px;
+  .marca{display:flex; align-items:center; gap:14px; min-width:0}
+  .brasao{
+    width:42px; height:42px; flex:0 0 42px; border-radius:11px;
+    display:grid; place-items:center; border:1px solid var(--accent);
+    font-family:'Cinzel',serif; font-size:15px; font-weight:600; color:var(--accent);
+    background:linear-gradient(150deg, rgba(255,255,255,.05), transparent);
   }
-  header p{margin:0; color:var(--muted); font-size:15px}
-  main{max-width:1180px; margin:0 auto; padding:20px; display:grid; gap:18px;
-       grid-template-columns:1fr 1fr}
-  @media (max-width:900px){main{grid-template-columns:1fr}}
-  .painel{background:var(--card); border:1px solid #24344f; border-radius:12px; padding:16px}
-  .painel h2{font-family:'Cinzel',serif; font-size:15px; color:var(--gold);
-             margin:0 0 12px; letter-spacing:1px; text-transform:uppercase}
+  .marca h1{
+    font-family:'Cinzel',serif; font-size:19px; font-weight:600; margin:0;
+    letter-spacing:.3px; color:var(--texto); white-space:nowrap;
+  }
+  .marca p{margin:1px 0 0; font-size:12px; color:var(--muted); letter-spacing:.9px; text-transform:uppercase}
+  .versao{
+    padding:5px 12px; border-radius:999px; border:1px solid var(--linha);
+    background:var(--deep); color:var(--muted); font-size:11.5px; cursor:pointer;
+    font-variant-numeric:tabular-nums; white-space:nowrap;
+  }
+  .versao:hover{border-color:var(--accent); color:var(--accent)}
+
+  .abas{
+    display:flex; gap:4px; padding:0 28px; background:var(--bg);
+    border-bottom:1px solid var(--linha); position:sticky; top:79px; z-index:19;
+  }
+  .aba{
+    appearance:none; background:none; border:none; cursor:pointer;
+    display:flex; align-items:center; gap:9px; padding:13px 16px 12px;
+    font-family:'Inter',sans-serif; font-size:13.5px; font-weight:500; color:var(--muted);
+    border-bottom:2px solid transparent; margin-bottom:-1px; transition:.18s;
+  }
+  .aba:hover{color:var(--texto)}
+  .aba.ativa{color:var(--accent); border-bottom-color:var(--accent)}
+  .aba .num{
+    width:20px; height:20px; border-radius:6px; display:grid; place-items:center;
+    background:var(--card); font-size:11px; font-weight:600; color:inherit;
+  }
+  .aba.ativa .num{background:var(--accent); color:var(--bg)}
+
+  .conteudo{display:none; max-width:1240px; margin:0 auto; padding:26px 28px 50px;
+            grid-template-columns:1fr 1fr; gap:20px; align-items:start}
+  .conteudo.ativa{display:grid}
+  @media (max-width:960px){
+    .conteudo.ativa{grid-template-columns:1fr}
+    .topo,.abas{padding-left:16px;padding-right:16px}
+    .conteudo{padding:18px 16px 40px}
+  }
+  .painel{
+    background:var(--bg); border:1px solid var(--linha); border-radius:var(--raio);
+    padding:20px; box-shadow:var(--sombra);
+  }
+  .painel.largo{grid-column:1/-1}
+  .painel h2{
+    font-family:'Inter',sans-serif; font-size:11.5px; font-weight:600; color:var(--muted);
+    margin:0 0 16px; letter-spacing:1.4px; text-transform:uppercase;
+    display:flex; align-items:center; gap:10px;
+  }
+  .painel h2::after{content:''; flex:1; height:1px; background:var(--linha)}
+
+  button{
+    font-family:'Inter',sans-serif; font-size:13px; font-weight:500; cursor:pointer;
+    padding:10px 16px; border-radius:9px; border:1px solid var(--linha);
+    background:var(--card); color:var(--texto); transition:.16s;
+  }
+  button:hover{border-color:var(--accent); color:var(--accent)}
+  button:disabled{opacity:.5; cursor:default}
+  button.primario{background:var(--accent); color:var(--bg); border-color:var(--accent); font-weight:600}
+  button.primario:hover{filter:brightness(1.1); color:var(--bg)}
+  .barra{display:flex; flex-wrap:wrap; gap:8px; margin-top:14px}
   textarea{
-    width:100%; height:340px; background:var(--deep); color:var(--cream);
-    border:1px solid #2b3d5c; border-radius:8px; padding:12px;
-    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5;
+    width:100%; height:330px; background:var(--deep); color:var(--texto);
+    border:1px solid var(--linha); border-radius:10px; padding:14px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12px; line-height:1.6;
     resize:vertical;
   }
-  .barra{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
-  button{
-    font-family:'Cinzel',serif; font-size:13px; letter-spacing:.6px;
-    padding:10px 16px; border-radius:8px; border:1px solid var(--gold);
-    background:transparent; color:var(--gold); cursor:pointer;
-  }
-  button:hover{background:rgba(201,162,39,.12)}
-  button.primario{background:var(--gold); color:var(--navy); font-weight:700}
-  button.primario:hover{filter:brightness(1.08)}
-  .lista{max-height:420px; overflow:auto; margin:0; padding:0; list-style:none}
-  .lista li{
-    border-bottom:1px solid #24344f; padding:9px 4px; display:flex; gap:10px;
-    align-items:flex-start; font-size:15px;
-  }
-  .lista li:last-child{border-bottom:0}
-  .idx{color:var(--gold); font-family:'Cinzel',serif; font-size:12px; min-width:26px}
-  .tag{
-    font-family:ui-monospace,monospace; font-size:11px; color:var(--navy);
-    background:var(--muted); border-radius:4px; padding:1px 6px; white-space:nowrap;
-  }
-  .resumo{color:var(--muted); flex:1}
-  #avisos{margin-top:12px; font-size:14.5px}
-  .aviso{border-left:3px solid var(--gold); padding:6px 10px; margin-bottom:6px;
-         background:rgba(201,162,39,.08); border-radius:0 6px 6px 0}
-  .erro{border-left-color:#e06060; background:rgba(224,96,96,.10)}
-  .ok{color:#8fd0a0}
-  /* --- abas --- */
-  .abas{max-width:1180px; margin:18px auto 0; padding:0 20px; display:flex; gap:8px}
-  .aba{
-    font-family:'Cinzel',serif; font-size:13px; letter-spacing:.6px; cursor:pointer;
-    padding:10px 18px; border:1px solid #2b3d5c; border-bottom:none;
-    border-radius:10px 10px 0 0; background:var(--deep); color:var(--muted);
-  }
-  .aba.ativa{background:var(--card); color:var(--gold); border-color:#3a4d6e}
-  .conteudo{display:none}
-  .conteudo.ativa{display:grid}
-  /* --- upload --- */
-  .drop{
-    border:2px dashed #3a4d6e; border-radius:12px; padding:34px 20px; text-align:center;
-    color:var(--muted); cursor:pointer; transition:.15s; background:rgba(10,20,37,.5);
-  }
-  .drop:hover,.drop.sobre{border-color:var(--gold); color:var(--cream)}
-  .drop strong{display:block; font-family:'Cinzel',serif; color:var(--gold); font-size:15px; margin-bottom:6px}
-  /* --- perfil --- */
-  .perfil{
-    display:flex; align-items:center; gap:12px; margin:14px 0 4px; padding:12px 14px;
-    border:1px solid var(--gold); border-radius:10px; background:rgba(201,162,39,.08);
-  }
-  .perfil b{font-family:'Cinzel',serif; color:var(--gold); font-size:18px; letter-spacing:1px}
-  .perfil span{color:var(--muted); font-size:14.5px}
-  /* --- estrutura --- */
-  .arvore{max-height:520px; overflow:auto; font-size:15px}
-  .bl{padding:5px 6px; border-bottom:1px solid #1d2c46; display:flex; gap:9px; align-items:flex-start}
-  .bl:last-child{border-bottom:0}
-  .bl .t{font-family:ui-monospace,monospace; font-size:10px; padding:2px 6px; border-radius:4px;
-         white-space:nowrap; background:#24344f; color:var(--muted)}
-  .bl.unidade{background:rgba(201,162,39,.14)}
-  .bl.unidade .t,.bl.assunto .t{background:var(--gold); color:var(--navy)}
-  .bl.assunto{background:rgba(201,162,39,.07)}
-  .bl.secao .t{background:#3a4d6e; color:var(--cream)}
-  .bl.unidade .x,.bl.assunto .x{font-family:'Cinzel',serif; color:var(--gold)}
-  .bl.secao .x{color:var(--cream); font-weight:600}
-  .bl .x{flex:1; line-height:1.4}
-  .bl .n{color:#6b7f9e; font-size:12px; font-family:ui-monospace,monospace}
-  .metricas{display:flex; flex-wrap:wrap; gap:16px; margin:10px 0 4px; color:var(--muted); font-size:14px}
-  .metricas b{color:var(--cream); font-family:'Cinzel',serif}
-  .config{display:flex; gap:8px; align-items:center; margin-top:10px}
-  .config label{font-family:'Cinzel',serif; font-size:12px; color:var(--muted); letter-spacing:.5px}
+  textarea:focus,input:focus{outline:none; border-color:var(--accent)}
+  .config{display:flex; gap:8px; align-items:center; margin-top:12px}
+  .config label{font-size:11.5px; color:var(--muted); letter-spacing:1px; text-transform:uppercase}
   .config input{
-    flex:1; background:var(--deep); color:var(--cream); border:1px solid #2b3d5c;
-    border-radius:8px; padding:8px 10px; font-family:ui-monospace,monospace; font-size:12px;
+    flex:1; min-width:0; background:var(--deep); color:var(--texto); border:1px solid var(--linha);
+    border-radius:9px; padding:9px 12px; font-family:ui-monospace,monospace; font-size:12px;
   }
-  .config button{padding:8px 12px; font-size:12px}
-  #progresso{margin-top:12px; font-size:15px; color:var(--muted)}
-  #progresso .andando{
-    border-left:3px solid var(--gold); padding:10px 14px; border-radius:0 8px 8px 0;
-    background:rgba(201,162,39,.08);
+
+  .drop{
+    border:1.5px dashed var(--linha); border-radius:12px; padding:34px 20px; text-align:center;
+    color:var(--muted); cursor:pointer; transition:.2s; background:var(--deep); font-size:13.5px;
   }
-  #progresso .linha{display:flex; align-items:center; gap:10px}
-  #progresso .passo{flex:1; font-family:'Cinzel',serif; font-size:14px; color:var(--gold); letter-spacing:.4px}
-  #progresso .relogio{font-family:ui-monospace,monospace; font-size:13px; color:var(--muted)}
-  #progresso .fase{margin-top:6px; font-size:14.5px; color:var(--cream); opacity:.85}
+  .drop:hover,.drop.sobre{border-color:var(--accent); background:var(--card)}
+  .drop strong{display:block; font-size:15px; font-weight:600; color:var(--texto); margin-bottom:4px}
+  .drop .ico{font-size:24px; color:var(--accent); line-height:1; margin-bottom:10px}
+
+  .perfil{
+    display:flex; align-items:center; gap:12px; margin:16px 0 0; padding:13px 15px;
+    border:1px solid var(--accent); border-radius:11px; background:var(--card);
+  }
+  .perfil b{font-family:'Cinzel',serif; font-size:15px; letter-spacing:1px; color:var(--accent); white-space:nowrap}
+  .perfil span{color:var(--muted); font-size:13px; line-height:1.45}
+  .metricas{display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:10px; margin-top:14px}
+  .metricas .m{background:var(--deep); border:1px solid var(--linha); border-radius:10px; padding:10px 12px}
+  .metricas .m i{display:block; font-style:normal; font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase}
+  .metricas .m b{display:block; font-size:16px; font-weight:600; margin-top:3px; color:var(--texto); overflow-wrap:anywhere}
+
+  .arvore{max-height:540px; overflow:auto; margin:-4px -6px; padding:0 6px}
+  .bl{padding:7px 8px; border-radius:8px; display:flex; gap:10px; align-items:flex-start; font-size:13px}
+  .bl+.bl{margin-top:2px}
+  .bl .t{
+    font-family:ui-monospace,monospace; font-size:9.5px; letter-spacing:.4px; padding:3px 7px;
+    border-radius:5px; background:var(--card); color:var(--muted); white-space:nowrap; margin-top:1px;
+  }
+  .bl .x{flex:1; line-height:1.5; color:var(--muted)}
+  .bl .n{font-size:11px; color:var(--muted); opacity:.6}
+  .bl.unidade,.bl.assunto{background:var(--card)}
+  .bl.unidade .t,.bl.assunto .t{background:var(--accent); color:var(--bg)}
+  .bl.unidade .x,.bl.assunto .x{color:var(--accent); font-family:'Cinzel',serif; font-size:12.5px}
+  .bl.secao .x{color:var(--texto); font-weight:600}
+
+  .lista{max-height:430px; overflow:auto; margin:0; padding:0; list-style:none}
+  .lista li{display:flex; gap:11px; align-items:center; padding:9px 8px; border-radius:8px; font-size:13px}
+  .lista li:nth-child(odd){background:var(--deep)}
+  .idx{font-size:11px; color:var(--muted); min-width:20px}
+  .tag{
+    font-family:ui-monospace,monospace; font-size:9.5px; padding:3px 7px; border-radius:5px;
+    background:var(--card); color:var(--accent); white-space:nowrap;
+  }
+  .resumo{flex:1; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+  .aviso{
+    border-left:2px solid var(--accent); padding:9px 13px; margin-bottom:6px; font-size:13px;
+    background:var(--card); border-radius:0 9px 9px 0; color:var(--texto);
+  }
+  .aviso.erro{border-left-color:#E0605F}
+  .aviso.ok{border-left-color:#5FBF8F}
+  #avisos,#avisosDoc{margin-top:14px}
+
+  #progresso{margin-top:14px}
+  #progresso .andando{background:var(--card); border:1px solid var(--linha); border-radius:11px; padding:13px 15px}
+  #progresso .linha{display:flex; align-items:center; gap:11px}
+  #progresso .passo{flex:1; font-size:13px; font-weight:600; color:var(--accent)}
+  #progresso .relogio{font-size:12px; color:var(--muted)}
+  #progresso .fase{margin-top:7px; font-size:12.5px; color:var(--muted)}
   .giro{
-    width:16px; height:16px; flex:0 0 16px; border-radius:50%;
-    border:2px solid rgba(201,162,39,.25); border-top-color:var(--gold);
-    animation:girar .9s linear infinite;
+    width:15px; height:15px; flex:0 0 15px; border-radius:50%;
+    border:2px solid var(--linha); border-top-color:var(--accent); animation:girar .85s linear infinite;
   }
   @keyframes girar{to{transform:rotate(360deg)}}
-  .versao{
-    display:inline-block; margin-left:10px; padding:2px 9px; border-radius:20px;
-    border:1px solid #2b3d5c; background:var(--deep); color:var(--gold);
-    font-family:ui-monospace,monospace; font-size:11.5px; cursor:pointer;
+
+  .paletas{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
+  .pal{
+    border:1.5px solid var(--linha); border-radius:12px; padding:12px; cursor:pointer;
+    background:var(--deep); transition:.18s; text-align:left; font-family:'Inter',sans-serif;
   }
-  .versao:hover{border-color:var(--gold)}
+  .pal:hover{border-color:var(--muted)}
+  .pal.ativa{border-color:var(--accent)}
+  .pal .amostra{display:flex; height:32px; border-radius:7px; overflow:hidden; margin-bottom:9px}
+  .pal .amostra span{flex:1}
+  .pal .amostra span.destaque{flex:.45}
+  .pal .nome{font-size:13px; font-weight:600; color:var(--texto)}
+  .pal .desc{font-size:11px; color:var(--muted)}
+
+  .previa{
+    margin-top:18px; border-radius:12px; overflow:hidden; border:1px solid var(--linha);
+    aspect-ratio:16/9; padding:6% 7%; display:flex; flex-direction:column; justify-content:center;
+  }
+  .previa .eyebrow{font-family:'Cinzel',serif; font-size:clamp(8px,.95vw,12px); letter-spacing:3px; margin-bottom:2.5%}
+  .previa .t1,.previa .t2{font-family:'Cinzel',serif; font-weight:700; font-size:clamp(17px,2.9vw,36px); line-height:1.16}
+  .previa .sub{font-family:'Cormorant Garamond',serif; font-style:italic; font-size:clamp(11px,1.4vw,18px); margin-top:3%}
+  .previa .regua{width:12%; height:3px; margin-top:4%}
+  .nota{font-size:12.5px; color:var(--muted); margin-top:14px; line-height:1.6}
+
+  footer{
+    max-width:1240px; margin:0 auto; padding:0 28px 40px; color:var(--muted);
+    font-size:11.5px; display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap;
+  }
   #faixaAtualizar .faixa{
-    background:var(--gold); color:var(--navy); padding:11px 20px; text-align:center;
-    font-family:'Cormorant Garamond',serif; font-size:16px; font-weight:600;
+    background:var(--accent); color:var(--bg); padding:11px 20px; text-align:center;
+    font-size:13.5px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:12px;
   }
-  #faixaAtualizar .faixa button{
-    margin-left:12px; background:var(--navy); color:var(--gold); border-color:var(--navy);
-    padding:6px 14px; font-size:12px;
-  }
-  footer{padding:14px 20px 40px; text-align:center; color:var(--muted); font-size:13px}
-  code{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold)}
+  #faixaAtualizar .faixa button{background:var(--bg); color:var(--accent); border-color:var(--bg); padding:6px 13px; font-size:12px}
 </style>
 </head>
 <body>
 
 <div id="faixaAtualizar"></div>
 
-<header>
-  <h1>Gerador de Apresentações</h1>
-  <p>Etapa 3 — documento, IA e PPTX editável
-     <span class="versao" id="selo" onclick="checarAtualizacao(false)" title="Clique para verificar se há versão nova"></span>
-  </p>
+<header class="topo">
+  <div class="marca">
+    <div class="brasao">IV</div>
+    <div>
+      <h1>Gerador de Apresentacoes</h1>
+      <p>Igreja Vidas &middot; MENTOR</p>
+    </div>
+  </div>
+  <span class="versao" id="selo" onclick="checarAtualizacao(false)" title="Clique para verificar se ha versao nova"></span>
 </header>
 
 <nav class="abas">
-  <div class="aba ativa" data-aba="doc" onclick="trocarAba('doc')">1 · Documento</div>
-  <div class="aba" data-aba="roteiro" onclick="trocarAba('roteiro')">2 · Roteiro e PPTX</div>
+  <button class="aba ativa" data-aba="doc" onclick="trocarAba('doc')"><span class="num">1</span>Documento</button>
+  <button class="aba" data-aba="roteiro" onclick="trocarAba('roteiro')"><span class="num">2</span>Roteiro</button>
+  <button class="aba" data-aba="aparencia" onclick="trocarAba('aparencia')"><span class="num">3</span>Apar&ecirc;ncia</button>
 </nav>
 
 <main class="conteudo ativa" id="aba-doc">
   <section class="painel">
-    <h2>Ler documento (.docx)</h2>
+    <h2>Ler documento</h2>
     <div class="drop" id="drop" onclick="document.getElementById('arquivo').click()">
-      <strong>Solte o arquivo aqui</strong>
-      ou clique para escolher · estudo, sermão ou apostila do MENTOR
+      <div class="ico">&#10022;</div>
+      <strong>Solte o arquivo .docx aqui</strong>
+      ou clique para escolher &middot; estudo, serm&atilde;o ou apostila
     </div>
     <input type="file" id="arquivo" accept=".docx" style="display:none">
     <div id="perfilBox"></div>
     <div class="metricas" id="metricas"></div>
     <div class="barra">
       <button class="primario" id="btnIA" onclick="gerarRoteiroIA()">Gerar roteiro com IA</button>
-      <button onclick="baixarExtracao()">Baixar extração (.json)</button>
+      <button onclick="baixarExtracao()">Baixar extra&ccedil;&atilde;o</button>
       <button onclick="verTextoBruto()">Ver texto corrido</button>
     </div>
     <div class="config">
@@ -186,25 +253,25 @@
       <button onclick="salvarWorker()">Salvar</button>
     </div>
     <div id="progresso"></div>
-    <div id="avisosDoc" style="margin-top:12px"></div>
+    <div id="avisosDoc"></div>
   </section>
 
   <section class="painel">
     <h2>Estrutura reconhecida</h2>
     <div class="arvore" id="arvore">
-      <div class="resumo" style="color:var(--muted)">Nenhum documento carregado.</div>
+      <div class="bl"><span class="x">Nenhum documento carregado.</span></div>
     </div>
   </section>
 </main>
 
 <main class="conteudo" id="aba-roteiro">
   <section class="painel">
-    <h2>Roteiro (JSON)</h2>
+    <h2>Roteiro em JSON</h2>
     <textarea id="json" spellcheck="false"></textarea>
     <div class="barra">
-      <button onclick="carregarDemo()">Carregar exemplo</button>
-      <button onclick="validar(true)">Validar</button>
       <button class="primario" onclick="gerar()">Gerar PPTX</button>
+      <button onclick="validar(true)">Validar</button>
+      <button onclick="carregarDemo()">Carregar exemplo</button>
     </div>
   </section>
 
@@ -215,15 +282,31 @@
   </section>
 </main>
 
+<main class="conteudo" id="aba-aparencia">
+  <section class="painel largo">
+    <h2>Paleta da apresenta&ccedil;&atilde;o</h2>
+    <div class="paletas" id="paletas"></div>
+    <div class="previa" id="previa">
+      <div class="eyebrow">MENSAGEM &middot; IGREJA VIDAS</div>
+      <div class="t1">Quando o cora&ccedil;&atilde;o se abre,</div>
+      <div class="t2">a casa se transforma</div>
+      <div class="sub">Atos 16.14-15</div>
+      <div class="regua"></div>
+    </div>
+    <p class="nota">A paleta escolhida vale para os slides gerados e para o pr&oacute;prio app. Ela fica guardada neste navegador e viaja junto com o roteiro em JSON, no campo <code>paleta</code>.</p>
+  </section>
+</main>
+
 <footer>
-  Igreja Vidas · MENTOR — <code>LAYOUT_WIDE 13,33" × 7,5"</code>
+  <span>Igreja Vidas &middot; MENTOR</span>
+  <span>LAYOUT_WIDE 13,33 x 7,5 pol &middot; 22 layouts</span>
 </footer>
 
 <script>
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '3.4';
+const VERSAO = '4.0';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -262,16 +345,73 @@ function recarregarLimpo(){
 }
 
 /* ==========================================================================
-   1. IDENTIDADE VISUAL  (hex SEM "#" — exigência do PptxGenJS)
+   1. IDENTIDADE VISUAL  (hex SEM "#" — exigencia do PptxGenJS)
+   --------------------------------------------------------------------------
+   C guarda a paleta EM USO. Trocar de paleta reescreve as chaves de C, e todos
+   os 22 layouts passam a desenhar na cor nova sem precisar de alteracao.
    ========================================================================== */
-const C = {
-  NAVY : '0F1B33',
-  DEEP : '0A1425',
-  GOLD : 'C9A227',
-  CREAM: 'F2EDE3',
-  MUTED: '9FB0C9',
-  CARD : '16253F'
+const PALETAS = {
+  azul:   { nome:'Azul',    acento:'Ouro',        cores:{ NAVY:'0F1B33', DEEP:'0A1425', GOLD:'C9A227', CREAM:'F2EDE3', MUTED:'93A4BE', CARD:'16253F', LINHA:'22304C' } },
+  verde:  { nome:'Verde',   acento:'Ouro velho',  cores:{ NAVY:'12251C', DEEP:'081409', GOLD:'C2A03C', CREAM:'EFEEE2', MUTED:'9BB3A2', CARD:'1B3527', LINHA:'274434' } },
+  vinho:  { nome:'Vinho',   acento:'Ouro rose',   cores:{ NAVY:'2A1219', DEEP:'19070D', GOLD:'CBA05A', CREAM:'F3EAE6', MUTED:'BFA0A6', CARD:'3A1C25', LINHA:'4A2831' } },
+  marrom: { nome:'Marrom',  acento:'Areia',       cores:{ NAVY:'261A12', DEEP:'160E07', GOLD:'D2A85F', CREAM:'F3ECE0', MUTED:'B7A490', CARD:'33251A', LINHA:'433223' } },
+  roxo:   { nome:'Roxo',    acento:'Ouro claro',  cores:{ NAVY:'21173A', DEEP:'120B24', GOLD:'CDA84B', CREAM:'F0EBF5', MUTED:'A99CC2', CARD:'2E2150', LINHA:'3C2D63' } },
+  preto:  { nome:'Preto',   acento:'Prata',       cores:{ NAVY:'161616', DEEP:'090909', GOLD:'C6C9CE', CREAM:'F0F0EE', MUTED:'8E9196', CARD:'232323', LINHA:'333333' } }
 };
+let PALETA_ATIVA = 'azul';
+const C = Object.assign({}, PALETAS.azul.cores);
+
+function aplicarPaleta(id, silencioso){
+  if (!PALETAS[id]) id = 'azul';
+  PALETA_ATIVA = id;
+  Object.assign(C, PALETAS[id].cores);   // muda as cores dos slides
+  for (const k in _bgCache) delete _bgCache[k];   // fundos precisam ser refeitos
+
+  const r = document.documentElement.style;       // muda as cores do app
+  r.setProperty('--bg',     '#' + C.NAVY);
+  r.setProperty('--deep',   '#' + C.DEEP);
+  r.setProperty('--card',   '#' + C.CARD);
+  r.setProperty('--linha',  '#' + C.LINHA);
+  r.setProperty('--accent', '#' + C.GOLD);
+  r.setProperty('--texto',  '#' + C.CREAM);
+  r.setProperty('--muted',  '#' + C.MUTED);
+
+  desenharPaletas();
+  if (!silencioso){ try { localStorage.setItem('gerador_paleta', id); } catch(e){} }
+}
+
+function desenharPaletas(){
+  const alvo = document.getElementById('paletas');
+  if (!alvo) return;
+  alvo.innerHTML = Object.keys(PALETAS).map(id => {
+    const p = PALETAS[id], c = p.cores;
+    return '<button class="pal ' + (id === PALETA_ATIVA ? 'ativa' : '') + '" onclick="aplicarPaleta(\'' + id + '\')">' +
+             '<div class="amostra">' +
+               '<span style="background:#' + c.DEEP + '"></span>' +
+               '<span style="background:#' + c.NAVY + '"></span>' +
+               '<span style="background:#' + c.CARD + '"></span>' +
+               '<span class="destaque" style="background:#' + c.GOLD + '"></span>' +
+             '</div>' +
+             '<div class="nome">' + p.nome + '</div>' +
+             '<div class="desc">acento ' + p.acento.toLowerCase() + '</div>' +
+           '</button>';
+  }).join('');
+
+  const pv = document.getElementById('previa');
+  if (pv){
+    pv.style.background = 'radial-gradient(120% 90% at 80% 18%, ' + hexRGBA(C.GOLD, .22) + ', transparent 62%), #' + C.NAVY;
+    pv.querySelector('.eyebrow').style.color = '#' + C.GOLD;
+    pv.querySelector('.t1').style.color      = '#' + C.CREAM;
+    pv.querySelector('.t2').style.color      = '#' + C.GOLD;
+    pv.querySelector('.sub').style.color     = '#' + C.MUTED;
+    pv.querySelector('.regua').style.background = '#' + C.GOLD;
+  }
+}
+function hexRGBA(hex, a){
+  const n = parseInt(hex, 16);
+  return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')';
+}
+
 const FT = 'Cinzel';               // títulos
 const FB = 'Cormorant Garamond';   // corpo
 
@@ -284,7 +424,7 @@ const BASE= 7.15;   // limite inferior seguro
    ========================================================================== */
 const _bgCache = {};
 function gradienteRadial(cx, cy, cor1, cor2, w = 1920, h = 1080){
-  const chave = [cx,cy,cor1,cor2].join('|');
+  const chave = [PALETA_ATIVA,cx,cy,cor1,cor2].join('|');
   if (_bgCache[chave]) return _bgCache[chave];
   const c = document.createElement('canvas');
   c.width = w; c.height = h;
@@ -300,11 +440,11 @@ function gradienteRadial(cx, cy, cor1, cor2, w = 1920, h = 1080){
 }
 // variantes testadas
 const BG = {
-  capa      : () => gradienteRadial(0.80, 0.18, '#0F1B33', 'rgba(201,162,39,0.26)'),
-  centro    : () => gradienteRadial(0.50, 0.45, '#0A1425', 'rgba(201,162,39,0.20)'),
-  esquerda  : () => gradienteRadial(0.18, 0.50, '#0F1B33', 'rgba(159,176,201,0.18)'),
-  inferior  : () => gradienteRadial(0.50, 0.95, '#0A1425', 'rgba(201,162,39,0.24)'),
-  liso      : () => gradienteRadial(0.50, 0.50, '#0F1B33', 'rgba(22,37,63,0.65)')
+  capa      : () => gradienteRadial(0.80, 0.18, '#' + C.NAVY, hexRGBA(C.GOLD, 0.26)),
+  centro    : () => gradienteRadial(0.50, 0.45, '#' + C.DEEP, hexRGBA(C.GOLD, 0.20)),
+  esquerda  : () => gradienteRadial(0.18, 0.50, '#' + C.NAVY, hexRGBA(C.MUTED, 0.18)),
+  inferior  : () => gradienteRadial(0.50, 0.95, '#' + C.DEEP, hexRGBA(C.GOLD, 0.24)),
+  liso      : () => gradienteRadial(0.50, 0.50, '#' + C.NAVY, hexRGBA(C.CARD, 0.65))
 };
 function fundo(slide, variante){
   slide.background = { data: BG[variante || 'liso']() };
@@ -378,7 +518,7 @@ function faixaRemate(slide, texto, x, y, w, h){
   }, 15));
 }
 function cartao(slide, x, y, w, h){
-  slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.CARD}, rectRadius:0.1, line:{color:'24344F'} });
+  slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.CARD}, rectRadius:0.1, line:{color:C.LINHA} });
 }
 function circuloNum(slide, n, x, y, d){
   d = d || 0.56;
@@ -717,12 +857,12 @@ LAYOUTS.tabela = (s, f) => {
   }));
   const corpo = linhas.map((ln, i) => ln.map(cel => ({
     text: String(cel == null ? '' : cel),
-    options: { fontFace:FB, fontSize:tam, color:C.CREAM, fill:{color: i%2 ? C.CARD : '12203A'}, valign:'middle', margin:8 }
+    options: { fontFace:FB, fontSize:tam, color:C.CREAM, fill:{color: i%2 ? C.CARD : C.DEEP}, valign:'middle', margin:8 }
   })));
   const lg = WU / cols.length;
   s.addTable([cabec].concat(corpo), {
     x:M, y:2.00, w:WU, colW: cols.map(() => lg),
-    border: { type:'solid', color:'24344F', pt:1 },
+    border: { type:'solid', color:C.LINHA, pt:1 },
     autoPage: false
   });
 };
@@ -841,6 +981,8 @@ function validarRoteiro(r){
    ========================================================================== */
 function montar(roteiro){
   normalizarSlides(roteiro);
+  if (roteiro.paleta && PALETAS[roteiro.paleta] && roteiro.paleta !== PALETA_ATIVA) aplicarPaleta(roteiro.paleta);
+  roteiro.paleta = PALETA_ATIVA;
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_WIDE';            // ANTES de qualquer slide
   pres.author = 'Bispo Enéas Araújo';
@@ -1069,11 +1211,11 @@ function desenharExtracao(){
     `<div class="perfil"><b>${rotuloPerfil}</b><span>${E.razao}</span></div>`;
 
   const totalSlides = E.arvore.reduce((s,u)=> s + u.assuntos.reduce((t,a)=>t+a.slides,0), 0);
-  const m = [`Arquivo: <b>${E.arquivo}</b>`, `Palavras: <b>${E.palavras.toLocaleString('pt-BR')}</b>`,
-             `Blocos: <b>${E.blocos.length}</b>`];
-  if (E.perfil === 'apostila') m.push(`Estimativa: <b>~${totalSlides} slides</b>`);
-  else m.push(`Estimativa: <b>~${E.perfil==='sermao' ? '25-30' : '20-25'} slides</b>`);
-  document.getElementById('metricas').innerHTML = m.map(x=>`<span>${x}</span>`).join('');
+  const est = (E.perfil === 'apostila') ? ('~' + totalSlides) : ('~' + (E.perfil==='sermao' ? '25-30' : '20-25'));
+  const m = [['Palavras', E.palavras.toLocaleString('pt-BR')], ['Blocos', E.blocos.length],
+             ['Slides previstos', est], ['Arquivo', E.arquivo.replace(/\.docx$/i,'')]];
+  document.getElementById('metricas').innerHTML =
+    m.map(([r,v]) => `<div class="m"><i>${r}</i><b>${v}</b></div>`).join('');
 
   const box = document.getElementById('avisosDoc');
   box.innerHTML = E.avisos.length
@@ -1389,7 +1531,7 @@ async function gerarRoteiroIA(){
   const sistema = promptSistema(EXTRACAO.perfil);
   const fila = fatiar(EXTRACAO);
   const total = fila.length;
-  const roteiro = { titulo:'', subtitulo:'', serie:'', avisos:[], slides:[] };
+  const roteiro = { titulo:'', subtitulo:'', serie:'', paleta:PALETA_ATIVA, avisos:[], slides:[] };
   const problemas = [];
   let feitos = 0, primeiro = true;
 
