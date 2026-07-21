@@ -7,6 +7,14 @@
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <title>Gerador de Apresentações · Igreja Vidas</title>
+<link rel="icon" type="image/png" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-192.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Slides">
+<meta name="theme-color" content="#0F1B33" id="temaCor">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
@@ -34,11 +42,11 @@
   }
   .marca{display:flex; align-items:center; gap:14px; min-width:0}
   .brasao{
-    width:42px; height:42px; flex:0 0 42px; border-radius:11px;
-    display:grid; place-items:center; border:1px solid var(--accent);
+    width:44px; height:44px; flex:0 0 44px; border-radius:11px;
+    display:grid; place-items:center; object-fit:contain;
     font-family:'Cinzel',serif; font-size:15px; font-weight:600; color:var(--accent);
-    background:linear-gradient(150deg, rgba(255,255,255,.05), transparent);
   }
+  div.brasao{border:1px solid var(--accent); background:linear-gradient(150deg, rgba(255,255,255,.05), transparent)}
   .marca h1{
     font-family:'Cinzel',serif; font-size:19px; font-weight:600; margin:0;
     letter-spacing:.3px; color:var(--texto); white-space:nowrap;
@@ -112,6 +120,14 @@
     flex:1; min-width:0; background:var(--deep); color:var(--texto); border:1px solid var(--linha);
     border-radius:9px; padding:9px 12px; font-family:ui-monospace,monospace; font-size:12px;
   }
+  .config.compacto{gap:9px; font-size:12px; color:var(--muted)}
+  .config.compacto .valor{font-family:ui-monospace,monospace; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+  .config.compacto .ok{color:var(--accent)}
+  .config .link{
+    background:none; border:none; padding:2px 4px; font-size:12px; color:var(--muted);
+    text-decoration:underline; text-underline-offset:3px;
+  }
+  .config .link:hover{color:var(--accent)}
 
   .drop{
     border:1.5px dashed var(--linha); border-radius:12px; padding:34px 20px; text-align:center;
@@ -127,10 +143,13 @@
   }
   .perfil b{font-family:'Cinzel',serif; font-size:15px; letter-spacing:1px; color:var(--accent); white-space:nowrap}
   .perfil span{color:var(--muted); font-size:13px; line-height:1.45}
-  .metricas{display:grid; grid-template-columns:repeat(auto-fit,minmax(108px,1fr)); gap:10px; margin-top:14px}
-  .metricas .m{background:var(--deep); border:1px solid var(--linha); border-radius:10px; padding:10px 12px}
+  .metricas{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-top:14px; align-items:start}
+  .metricas .m{background:var(--deep); border:1px solid var(--linha); border-radius:10px; padding:9px 12px}
   .metricas .m i{display:block; font-style:normal; font-size:10px; color:var(--muted); letter-spacing:1px; text-transform:uppercase}
-  .metricas .m b{display:block; font-size:16px; font-weight:600; margin-top:3px; color:var(--texto); overflow-wrap:anywhere}
+  .metricas .m b{display:block; font-size:16px; font-weight:600; margin-top:2px; color:var(--texto)}
+  .metricas .m.arquivo{grid-column:1/-1; display:flex; align-items:baseline; gap:10px}
+  .metricas .m.arquivo i{flex:0 0 auto}
+  .metricas .m.arquivo b{font-size:13.5px; font-weight:500; margin-top:0; line-height:1.4; overflow-wrap:anywhere}
 
   .arvore{max-height:540px; overflow:auto; margin:-4px -6px; padding:0 6px}
   .bl{padding:7px 8px; border-radius:8px; display:flex; gap:10px; align-items:flex-start; font-size:13px}
@@ -231,7 +250,7 @@
 
 <header class="topo">
   <div class="marca">
-    <div class="brasao">IV</div>
+    <img class="brasao" src="icone-192.png" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'brasao',textContent:'IV'}))">
     <div>
       <h1>Gerador de Apresentacoes</h1>
       <p>Igreja Vidas &middot; MENTOR</p>
@@ -262,11 +281,7 @@
       <button onclick="baixarExtracao()">Baixar extra&ccedil;&atilde;o</button>
       <button onclick="verTextoBruto()">Ver texto corrido</button>
     </div>
-    <div class="config">
-      <label>Worker</label>
-      <input id="workerUrl" placeholder="https://gerador-slides.eneaspr.workers.dev">
-      <button onclick="salvarWorker()">Salvar</button>
-    </div>
+    <div class="config" id="workerBox"></div>
     <div id="progresso"></div>
     <div id="avisosDoc"></div>
   </section>
@@ -322,7 +337,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.3';
+const VERSAO = '4.4';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -392,6 +407,8 @@ function aplicarPaleta(id, silencioso){
   r.setProperty('--texto',  '#' + C.CREAM);
   r.setProperty('--muted',  '#' + C.MUTED);
 
+  const tema = document.getElementById('temaCor');
+  if (tema) tema.setAttribute('content', '#' + C.NAVY);
   desenharPaletas();
   sincronizarPaletaNoJSON();
   if (!silencioso){ try { localStorage.setItem('gerador_paleta', id); } catch(e){} }
@@ -1281,9 +1298,9 @@ function desenharExtracao(){
 
   const totalSlides = E.arvore.reduce((s,u)=> s + u.assuntos.reduce((t,a)=>t+a.slides,0), 0);
   const est = (E.perfil === 'apostila') ? ('~' + totalSlides) : ('~' + (E.perfil==='sermao' ? '25-30' : '20-25'));
-  const m = [['Palavras', E.palavras.toLocaleString('pt-BR')], ['Blocos', E.blocos.length],
-             ['Slides previstos', est], ['Arquivo', E.arquivo.replace(/\.docx$/i,'')]];
+  const m = [['Palavras', E.palavras.toLocaleString('pt-BR')], ['Blocos', E.blocos.length], ['Slides previstos', est]];
   document.getElementById('metricas').innerHTML =
+    `<div class="m arquivo"><i>Arquivo</i><b>${E.arquivo.replace(/\.docx$/i,'')}</b></div>` +
     m.map(([r,v]) => `<div class="m"><i>${r}</i><b>${v}</b></div>`).join('');
 
   const box = document.getElementById('avisosDoc');
@@ -1679,10 +1696,36 @@ async function gerarRoteiroIA(){
   }
 }
 
+/* O endereco do Worker so aparece por extenso quando ainda nao foi salvo. */
+function desenharWorker(editando){
+  const box = document.getElementById('workerBox');
+  if (!box) return;
+  let salvo = '';
+  try { salvo = localStorage.getItem('gerador_worker') || ''; } catch(e){}
+
+  if (salvo && !editando){
+    box.className = 'config compacto';
+    box.innerHTML = '<span class="ok">&#10003;</span>' +
+      '<span class="valor" title="' + salvo + '">' + salvo.replace(/^https?:\/\//,'') + '</span>' +
+      '<button class="link" onclick="desenharWorker(true)">alterar</button>';
+    const oculto = document.createElement('input');   // o resto do app continua lendo daqui
+    oculto.type = 'hidden'; oculto.id = 'workerUrl'; oculto.value = salvo;
+    box.appendChild(oculto);
+  } else {
+    box.className = 'config';
+    box.innerHTML = '<label>Worker</label>' +
+      '<input id="workerUrl" placeholder="https://gerador-slides.eneaspr.workers.dev" value="' + salvo + '">' +
+      '<button onclick="salvarWorker()">Salvar</button>' +
+      (salvo ? '<button class="link" onclick="desenharWorker(false)">cancelar</button>' : '');
+  }
+}
+
 function salvarWorker(){
   const v = document.getElementById('workerUrl').value.trim();
   try { localStorage.setItem('gerador_worker', v); } catch(e){}
-  document.getElementById('progresso').innerHTML = '<div class="aviso ok">URL do Worker salva neste navegador.</div>';
+  desenharWorker(false);
+  document.getElementById('progresso').innerHTML = '<div class="aviso ok">Endereço do Worker salvo neste navegador.</div>';
+  setTimeout(() => { const g = document.getElementById('progresso'); if (g && g.textContent.indexOf('salvo') > 0) g.innerHTML = ''; }, 4000);
 }
 
 /* ==========================================================================
@@ -1933,7 +1976,7 @@ const DEMO = {
   try { pal = localStorage.getItem('gerador_paleta') || 'azul'; } catch(e){}
   aplicarPaleta(pal, true);   // pinta as bolinhas, os cartoes e a previa
   checarAtualizacao(true);   // verifica em silêncio ao abrir
-  try { const w = localStorage.getItem('gerador_worker'); if (w) document.getElementById('workerUrl').value = w; } catch(e){}
+  desenharWorker(false);
   const drop = document.getElementById('drop');
   const inp  = document.getElementById('arquivo');
   inp.addEventListener('change', e => { if (e.target.files[0]) processarArquivo(e.target.files[0]); });
