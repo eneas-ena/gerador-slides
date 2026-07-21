@@ -914,7 +914,7 @@ function trocarAba(id){
    ========================================================================== */
 const MODELO = 'claude-sonnet-5';   // a escolha de layout exige julgamento editorial
 const MAX_TOKENS = 16000;           // roteiro completo com notas do orador não cabe em 8000
-const MAX_CHARS_LOTE = 12000;       // teto de texto por chamada
+const MAX_CHARS_LOTE = 7000;        // teto de texto por chamada (lotes menores = respostas mais rápidas)
 
 /* --- 6C.1 catálogo de campos (fonte única, alinhada à biblioteca) --- */
 const CAMPOS = {
@@ -1076,27 +1076,59 @@ function conferirContrato(r){
   return erros;
 }
 
-/* --- 6C.7 chamada ao Worker, com nova tentativa em caso de falha --- */
+/* --- 6C.7 chamada ao Worker em streaming, com nova tentativa em caso de falha --- */
+function interpretarErro(status, corpo){
+  const t = String(corpo || '');
+  if (status === 524 || status === 504 || /524|timeout/i.test(t)) return 'TIMEOUT';
+  if (status === 522 || status === 502) return 'O Worker não respondeu (' + status + '). Confira se ele está publicado.';
+  if (status === 401 || status === 403) return 'Chave da API recusada. Confira o segredo ANTHROPIC_API_KEY no Worker.';
+  if (status === 429) return 'Limite de uso da API atingido. Aguarde um momento e tente de novo.';
+  try { const j = JSON.parse(t); return (j.error && j.error.message) || j.erro || t.slice(0,200); }
+  catch(e){ return 'HTTP ' + status + ' — ' + t.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180); }
+}
+
 async function chamarIA(sistema, pedido, tentativa){
   tentativa = tentativa || 1;
   const url = (document.getElementById('workerUrl').value || '').trim();
   if (!url) throw new Error('Informe a URL do Worker.');
-
   if (tentativa > 1) fase('Refazendo (tentativa ' + tentativa + ' de 3)…');
 
   const r = await fetch(url, {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ model:MODELO, max_tokens:MAX_TOKENS, system:sistema,
+    body: JSON.stringify({ model:MODELO, max_tokens:MAX_TOKENS, system:sistema, stream:true,
                            messages:[{ role:'user', content: pedido }] })
   });
-  const dados = await r.json();
-  if (!r.ok || dados.error) throw new Error((dados.error && dados.error.message) || dados.erro || ('HTTP ' + r.status));
+  if (!r.ok || !r.body) throw new Error(interpretarErro(r.status, await r.text().catch(()=>'')));
 
-  // resposta cortada por limite de tokens: fatiar em pedaços menores resolve
-  if (dados.stop_reason === 'max_tokens') throw new Error('TRUNCADO');
+  // leitura do fluxo de eventos (SSE)
+  const leitor = r.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '', bruto = '', parada = null, erroApi = null, ultimo = 0;
 
-  const bruto = (dados.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n');
+  while (true) {
+    const { done, value } = await leitor.read();
+    if (done) break;
+    buf += dec.decode(value, { stream:true });
+    const linhas = buf.split('\n');
+    buf = linhas.pop();
+    for (const linha of linhas) {
+      if (!linha.startsWith('data:')) continue;
+      const d = linha.slice(5).trim();
+      if (!d || d === '[DONE]') continue;
+      let ev; try { ev = JSON.parse(d); } catch(e){ continue; }
+      if (ev.type === 'content_block_delta' && ev.delta && ev.delta.text) bruto += ev.delta.text;
+      if (ev.type === 'message_delta' && ev.delta && ev.delta.stop_reason) parada = ev.delta.stop_reason;
+      if (ev.type === 'error') erroApi = (ev.error && ev.error.message) || 'erro no fluxo';
+    }
+    if (Date.now() - ultimo > 700) {   // atualiza a tela sem pesar
+      ultimo = Date.now();
+      const slidesAteAqui = (bruto.match(/"layout"/g) || []).length;
+      fase(`Recebendo o roteiro… ${slidesAteAqui} slide(s) escritos, ${bruto.length.toLocaleString('pt-BR')} caracteres.`);
+    }
+  }
+  if (erroApi) throw new Error(erroApi);
+  if (parada === 'max_tokens') throw new Error('TRUNCADO');
 
   fase('Validando o roteiro recebido…');
   try {
@@ -1105,7 +1137,7 @@ async function chamarIA(sistema, pedido, tentativa){
     if (erros.length && tentativa < 3) throw new Error(erros.slice(0,4).join(' · '));
     return { obj, erros };
   } catch(e) {
-    if (e.message === 'TRUNCADO') throw e;
+    if (e.message === 'TRUNCADO' || e.message === 'TIMEOUT') throw e;
     if (tentativa >= 3) throw new Error('A IA não devolveu JSON válido após 3 tentativas. ' + e.message);
     const correcao = pedido +
       `\n\nATENÇÃO: a tentativa anterior falhou (${e.message}). Responda SOMENTE com o objeto JSON,` +
@@ -1153,7 +1185,7 @@ async function gerarRoteiroIA(){
     while (fila.length) {
       const l = fila.shift();
       passo(`Trecho ${feitos+1}${total>1 ? ' de ' + Math.max(total, feitos + 1 + fila.length) : ''} — ${l.rotulo}`);
-      fase('Enviando ao Claude e aguardando o roteiro… isso costuma levar de 30 a 90 segundos.');
+      fase('Enviando ao Claude… a resposta chega aos poucos, acompanhe abaixo.');
 
       const contexto = (total > 1 || !primeiro)
         ? `Este é um trecho do documento "${EXTRACAO.arquivo}".` +
@@ -1166,9 +1198,11 @@ async function gerarRoteiroIA(){
         resposta = await chamarIA(sistema, pedido);
       } catch(e) {
         // resposta cortada: parte o trecho ao meio e devolve os dois à fila
-        if (e.message === 'TRUNCADO' && l.blocos.length > 3) {
+        if ((e.message === 'TRUNCADO' || e.message === 'TIMEOUT') && l.blocos.length > 3) {
           const meio = Math.ceil(l.blocos.length / 2);
-          fase('Trecho longo demais para uma resposta só. Dividindo em dois e continuando…');
+          fase(e.message === 'TIMEOUT'
+            ? 'Tempo esgotado neste trecho. Dividindo em dois pedaços menores e continuando…'
+            : 'Trecho longo demais para uma resposta só. Dividindo em dois e continuando…');
           fila.unshift({ rotulo: l.rotulo + ' (parte 2)', blocos: l.blocos.slice(meio) });
           fila.unshift({ rotulo: l.rotulo + ' (parte 1)', blocos: l.blocos.slice(0, meio) });
           continue;
@@ -1210,7 +1244,10 @@ async function gerarRoteiroIA(){
     pararCrono();
     const parcial = roteiro.slides.length ? ` Os ${roteiro.slides.length} slides já obtidos ficaram na aba 2.` : '';
     document.getElementById('progresso').innerHTML =
-      `<div class="aviso erro">${e.message === 'TRUNCADO' ? 'A resposta da IA foi cortada e o trecho não pôde ser dividido mais.' : e.message}${parcial}</div>`;
+      `<div class="aviso erro">${
+        e.message === 'TRUNCADO' ? 'A resposta da IA foi cortada e o trecho não pôde ser dividido mais.' :
+        e.message === 'TIMEOUT'  ? 'Tempo esgotado na Cloudflare mesmo com o trecho já dividido ao mínimo.' :
+        e.message}${parcial}</div>`;
   } finally {
     btn.disabled = false;
     btn.textContent = 'Gerar roteiro com IA';
