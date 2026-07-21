@@ -28,6 +28,9 @@
   }
   *{box-sizing:border-box}
   html{overflow-x:hidden; -webkit-text-size-adjust:100%}
+  /* nenhum item pode esticar seu container alem da tela */
+  .conteudo > *, .painel, .barra > *, .lista li > *, .bl > *, .metricas > *{min-width:0}
+  textarea, input, img{max-width:100%}
   body{
     margin:0; background:var(--deep); color:var(--texto);
     font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
@@ -83,76 +86,7 @@
   .conteudo{display:none; max-width:1240px; margin:0 auto; padding:26px 28px 50px;
             grid-template-columns:1fr 1fr; gap:20px; align-items:start}
   .conteudo.ativa{display:grid}
-  @media (max-width:960px){
-    .conteudo.ativa{grid-template-columns:1fr}
-    .topo,.abas{padding-left:16px;padding-right:16px}
-    .conteudo{padding:18px 16px 40px}
-    footer{padding-left:16px;padding-right:16px}
-  }
 
-  /* ---------- celular ---------- */
-  @media (max-width:640px){
-    body{font-size:14.5px}
-    .topo{padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top)); gap:10px}
-    .brasao{width:36px; height:36px; flex:0 0 36px; border-radius:9px}
-    .marca{gap:10px}
-    .marca h1{font-size:15.5px; white-space:normal; line-height:1.25}
-    .marca p{display:none}
-    .versao{padding:4px 9px; font-size:10.5px; flex:0 0 auto}
-    .abas{padding:0 14px}
-    .aba{padding:12px 12px 11px; font-size:12.5px; gap:7px}
-    .conteudo{padding:14px 12px 36px; gap:14px}
-    .painel{padding:15px 14px; border-radius:12px}
-    .painel h2{font-size:10.5px; margin-bottom:13px}
-
-    /* botoes: alvo de toque confortavel e sem sobra de espaco */
-    .barra{gap:7px}
-    .barra button{flex:1 1 46%; min-height:46px; padding:12px 12px; font-size:13.5px}
-    .barra button.primario{flex:1 1 100%}
-
-    /* metricas em duas colunas */
-    .metricas{grid-template-columns:1fr 1fr; gap:8px}
-    .metricas .m{padding:9px 11px}
-    .metricas .m.arquivo{flex-direction:column; align-items:flex-start; gap:3px}
-    .metricas .m b{font-size:15px}
-
-    .drop{padding:26px 14px}
-    .drop .ico{font-size:21px; margin-bottom:7px}
-    .drop strong{font-size:14px}
-
-    .perfil{flex-direction:column; align-items:flex-start; gap:6px; padding:12px 13px}
-    .perfil b{font-size:14px}
-
-    textarea{height:250px; font-size:12px}
-    /* 16px evita que o iPhone amplie a tela ao tocar no campo */
-    .config input{font-size:16px; padding:11px 12px}
-    .config{flex-wrap:wrap}
-    .config.compacto{font-size:11.5px}
-    .config.compacto .valor{flex:1 1 100%; order:3; word-break:break-all; white-space:normal}
-
-    .cores{gap:7px; justify-content:space-between}
-    .cores .rot{flex:1 1 100%; padding-top:0; margin-bottom:2px}
-    .bola .disco{width:34px; height:34px}
-    .bola .nm{font-size:10px}
-
-    .arvore{max-height:340px}
-    .lista{max-height:320px}
-    .lista li{font-size:12.5px; gap:8px}
-    .paletas{grid-template-columns:1fr 1fr; gap:8px}
-    .previa{margin-top:14px; padding:7% 8%}
-
-    #progresso .andando{padding:11px 12px}
-    #progresso .passo{font-size:12.5px}
-    #progresso .historico{font-size:10px}
-    footer{font-size:11px; padding-bottom:calc(28px + env(safe-area-inset-bottom))}
-  }
-
-  /* telas muito estreitas */
-  @media (max-width:380px){
-    .marca h1{font-size:14px}
-    .barra button{flex:1 1 100%}
-    .metricas{grid-template-columns:1fr}
-  }
   .painel{
     background:var(--bg); border:1px solid var(--linha); border-radius:var(--raio);
     padding:20px; box-shadow:var(--sombra);
@@ -316,6 +250,82 @@
     font-size:13.5px; font-weight:500; display:flex; align-items:center; justify-content:center; gap:12px;
   }
   #faixaAtualizar .faixa button{background:var(--bg); color:var(--accent); border-color:var(--bg); padding:6px 13px; font-size:12px}
+
+  /* ==========================================================================
+     TELAS MENORES — este bloco fica no FIM de propósito.
+     Media query não aumenta a prioridade da regra: quem vem depois vence.
+     Escrito antes, era desfeito pelas regras normais logo abaixo.
+     ========================================================================== */
+  @media (max-width:960px){
+    .conteudo.ativa{grid-template-columns:1fr}
+    .topo,.abas{padding-left:16px;padding-right:16px}
+    .conteudo{padding:18px 16px 40px}
+    footer{padding-left:16px;padding-right:16px}
+  }
+
+  /* ---------- celular ---------- */
+  @media (max-width:640px){
+    body{font-size:14.5px}
+    .topo{padding:12px 14px; padding-top:calc(12px + env(safe-area-inset-top)); gap:10px}
+    .brasao{width:36px; height:36px; flex:0 0 36px; border-radius:9px}
+    .marca{gap:10px}
+    .marca h1{font-size:15.5px; white-space:normal; line-height:1.25}
+    .marca p{display:none}
+    .versao{padding:4px 9px; font-size:10.5px; flex:0 0 auto}
+    .abas{padding:0 14px}
+    .aba{padding:12px 12px 11px; font-size:12.5px; gap:7px}
+    .conteudo{padding:14px 12px 36px; gap:14px}
+    .painel{padding:15px 14px; border-radius:12px}
+    .painel h2{font-size:10.5px; margin-bottom:13px}
+
+    /* botoes: alvo de toque confortavel e sem sobra de espaco */
+    .barra{gap:7px}
+    .barra button{flex:1 1 46%; min-height:46px; padding:12px 12px; font-size:13.5px}
+    .barra button.primario{flex:1 1 100%}
+
+    /* metricas em duas colunas */
+    .metricas{grid-template-columns:1fr 1fr; gap:8px}
+    .metricas .m{padding:9px 11px}
+    .metricas .m.arquivo{flex-direction:column; align-items:flex-start; gap:3px}
+    .metricas .m b{font-size:15px}
+
+    .drop{padding:26px 14px}
+    .drop .ico{font-size:21px; margin-bottom:7px}
+    .drop strong{font-size:14px}
+
+    .perfil{flex-direction:column; align-items:flex-start; gap:6px; padding:12px 13px}
+    .perfil b{font-size:14px}
+
+    textarea{height:250px; font-size:12px}
+    /* 16px evita que o iPhone amplie a tela ao tocar no campo */
+    .config input{font-size:16px; padding:11px 12px}
+    .config{flex-wrap:wrap}
+    .config.compacto{font-size:11.5px}
+    .config.compacto .valor{flex:1 1 100%; order:3; word-break:break-all; white-space:normal}
+
+    .cores{gap:8px; justify-content:flex-start; flex-wrap:wrap}
+    .cores .rot{flex:1 1 100%; padding-top:0; margin-bottom:2px}
+    .bola .disco{width:34px; height:34px}
+    .bola .nm{font-size:10px}
+
+    .arvore{max-height:340px}
+    .lista{max-height:320px}
+    .lista li{font-size:12.5px; gap:8px}
+    .paletas{grid-template-columns:1fr 1fr; gap:8px}
+    .previa{margin-top:14px; padding:7% 8%}
+
+    #progresso .andando{padding:11px 12px}
+    #progresso .passo{font-size:12.5px}
+    #progresso .historico{font-size:10px}
+    footer{font-size:11px; padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+  }
+
+  /* telas muito estreitas */
+  @media (max-width:380px){
+    .marca h1{font-size:14px}
+    .barra button{flex:1 1 100%}
+    .metricas{grid-template-columns:1fr}
+  }
 </style>
 </head>
 <body>
@@ -414,7 +424,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.7';
+const VERSAO = '4.8';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
