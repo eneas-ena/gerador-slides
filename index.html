@@ -318,7 +318,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.1';
+const VERSAO = '4.2';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -1874,6 +1874,9 @@ const DEMO = {
 /* --- eventos de upload --- */
 (function(){
   selo();
+  let pal = 'azul';
+  try { pal = localStorage.getItem('gerador_paleta') || 'azul'; } catch(e){}
+  aplicarPaleta(pal, true);   // pinta as bolinhas, os cartoes e a previa
   checarAtualizacao(true);   // verifica em silêncio ao abrir
   try { const w = localStorage.getItem('gerador_worker'); if (w) document.getElementById('workerUrl').value = w; } catch(e){}
   const drop = document.getElementById('drop');
