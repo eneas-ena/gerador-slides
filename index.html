@@ -176,17 +176,21 @@
   }
   @keyframes girar{to{transform:rotate(360deg)}}
 
-  .cores{display:flex; align-items:center; gap:9px; margin-top:16px; flex-wrap:wrap}
-  .cores .rot{font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-right:2px}
+  .cores{display:flex; align-items:flex-start; gap:10px; margin-top:18px; flex-wrap:wrap}
+  .cores .rot{font-size:11px; color:var(--muted); letter-spacing:1px; text-transform:uppercase; padding-top:13px; margin-right:4px}
   .bola{
-    width:30px; height:30px; border-radius:50%; cursor:pointer; padding:0;
-    border:2px solid transparent; position:relative; transition:.15s;
+    width:auto; padding:0; background:none; border:none; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:5px; transition:.15s;
   }
-  .bola:hover{transform:scale(1.08)}
-  .bola.ativa{border-color:var(--accent)}
-  .bola i{
-    position:absolute; inset:5px; border-radius:50%; display:block;
+  .bola .disco{
+    width:38px; height:38px; border-radius:50%; display:block;
+    border:2px solid transparent; box-shadow:inset 0 0 0 1px rgba(255,255,255,.12);
   }
+  .bola .nm{font-size:10.5px; color:var(--muted); letter-spacing:.2px}
+  .bola:hover .disco{transform:scale(1.06)}
+  .bola:hover .nm{color:var(--texto)}
+  .bola.ativa .disco{border-color:var(--texto); box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+  .bola.ativa .nm{color:var(--texto); font-weight:600}
   .paletas{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px}
   .pal{
     border:1.5px solid var(--linha); border-radius:12px; padding:12px; cursor:pointer;
@@ -318,7 +322,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.2';
+const VERSAO = '4.3';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -389,6 +393,7 @@ function aplicarPaleta(id, silencioso){
   r.setProperty('--muted',  '#' + C.MUTED);
 
   desenharPaletas();
+  sincronizarPaletaNoJSON();
   if (!silencioso){ try { localStorage.setItem('gerador_paleta', id); } catch(e){} }
 }
 
@@ -414,8 +419,9 @@ function desenharPaletas(){
     cx.innerHTML = '<span class="rot">Cor</span>' + Object.keys(PALETAS).map(id => {
       const c = PALETAS[id].cores;
       return '<button class="bola ' + (id === PALETA_ATIVA ? 'ativa' : '') + '" title="' + PALETAS[id].nome +
-             '" onclick="aplicarPaleta(\'' + id + '\')" style="background:#' + c.NAVY + '">' +
-             '<i style="background:#' + c.GOLD + '"></i></button>';
+             '" onclick="aplicarPaleta(\'' + id + '\')">' +
+             '<span class="disco" style="background:linear-gradient(135deg,#' + c.NAVY + ' 0 50%,#' + c.GOLD + ' 50% 100%)"></span>' +
+             '<span class="nm">' + PALETAS[id].nome + '</span></button>';
     }).join('');
   }
 
@@ -429,6 +435,19 @@ function desenharPaletas(){
     pv.querySelector('.regua').style.background = '#' + C.GOLD;
   }
 }
+/* mantem o campo "paleta" do roteiro igual a cor marcada na tela */
+function sincronizarPaletaNoJSON(){
+  const cx = document.getElementById('json');
+  if (!cx || !cx.value.trim()) return;
+  try {
+    const r = JSON.parse(cx.value);
+    if (r && typeof r === 'object' && r.paleta !== PALETA_ATIVA){
+      r.paleta = PALETA_ATIVA;
+      cx.value = JSON.stringify(r, null, 2);
+    }
+  } catch(e){}
+}
+
 function hexRGBA(hex, a){
   const n = parseInt(hex, 16);
   return 'rgba(' + ((n>>16)&255) + ',' + ((n>>8)&255) + ',' + (n&255) + ',' + a + ')';
@@ -486,7 +505,8 @@ function fonteCSS(sz, face, bold, italic){
 // quantas linhas o texto ocupa numa caixa de `w` polegadas (1 pt = 1/72")
 function contarLinhas(texto, w, sz, face, bold, italic){
   _mc.font = fonteCSS(sz, face, bold, italic);
-  const maxW = w * 72;
+  // margem de 4%: a medida do navegador e a do PowerPoint nunca batem exatamente
+  const maxW = w * 72 * 0.96;
   let linhas = 1, atual = '';
   String(texto).split(/\s+/).forEach(pal => {
     const teste = atual ? atual + ' ' + pal : pal;
@@ -503,6 +523,17 @@ function tamanhoQueCabe(texto, w, h, sz, face, bold, italic, razao, piso){
   }
   return piso;
 }
+/* Bloco que pode ocupar ate `maxLinhas`: devolve tamanho, linhas e altura real */
+function blocoAjustado(texto, w, maxLinhas, sz, face, bold, italic, razao, piso){
+  razao = razao || 1.18; piso = piso || 20;
+  for (let t = sz; t >= piso; t--){
+    const l = contarLinhas(texto, w, t, face, bold, italic);
+    if (l <= maxLinhas) return { tam:t, linhas:l, altura: l * t * razao / 72 };
+  }
+  const l = contarLinhas(texto, w, piso, face, bold, italic);
+  return { tam:piso, linhas:l, altura: l * piso * razao / 72 };
+}
+
 /* T() = opções de texto com tamanho já ajustado ao conteúdo real */
 function T(texto, o, piso){
   o = Object.assign({ fontFace: FB, color: C.CREAM, valign:'top', margin:0, isTextBox:true }, o);
@@ -580,10 +611,27 @@ const LAYOUTS = {};
 LAYOUTS.capa = (s, f) => {
   fundo(s, 'capa');
   eyebrow(s, f.eyebrow, 0.9, 1.55, 8.0);
-  // título ocupa a largura útil inteira e encolhe se o sermão tiver nome longo
-  if (f.linha1) s.addText(f.linha1, T(f.linha1, { x:0.85, y:2.05, w:11.6, h:1.10, fontFace:FT, fontSize:52, bold:true, color:C.CREAM }, 26));
-  if (f.linha2) s.addText(f.linha2, T(f.linha2, { x:0.85, y:3.15, w:11.6, h:1.10, fontFace:FT, fontSize:52, bold:true, color:C.GOLD }, 26));
-  if (f.subtitulo) s.addText(f.subtitulo, T(f.subtitulo, { x:0.9, y:4.50, w:11.0, h:0.85, fontSize:24, italic:true, color:C.MUTED }, 16));
+
+  // As duas linhas do titulo sao empilhadas pela ALTURA REAL que cada uma ocupa,
+  // e nao por posicoes fixas: assim uma linha longa nunca cobre a de baixo.
+  const LARG = 11.6, X = 0.85;
+  const b1 = f.linha1 ? blocoAjustado(String(f.linha1), LARG, 2, 52, FT, true, false, 1.18, 24) : null;
+  const b2 = f.linha2 ? blocoAjustado(String(f.linha2), LARG, 2, 52, FT, true, false, 1.18, 24) : null;
+  const tam = Math.min(b1 ? b1.tam : 99, b2 ? b2.tam : 99);   // mesmo corpo nas duas
+  const alt = b => b ? (contarLinhas(b.txt, LARG, tam, FT, true, false) * tam * 1.18 / 72) : 0;
+  if (b1) b1.txt = String(f.linha1);
+  if (b2) b2.txt = String(f.linha2);
+  const a1 = alt(b1), a2 = alt(b2);
+
+  let y = 2.05;
+  const totalTitulo = a1 + (a2 ? a2 + 0.10 : 0);
+  if (totalTitulo > 2.55) y = 1.95;                 // titulo grande sobe um pouco
+  if (b1){ s.addText(f.linha1, txt({ x:X, y:y, w:LARG, h:a1+0.05, fontFace:FT, fontSize:tam, bold:true, color:C.CREAM, lineSpacing:Math.round(tam*1.18) })); y += a1 + 0.10; }
+  if (b2){ s.addText(f.linha2, txt({ x:X, y:y, w:LARG, h:a2+0.05, fontFace:FT, fontSize:tam, bold:true, color:C.GOLD,  lineSpacing:Math.round(tam*1.18) })); y += a2; }
+
+  y += 0.42;                                        // respiro antes do subtitulo
+  const espacoSub = Math.max(0.55, 6.00 - y);
+  if (f.subtitulo) s.addText(f.subtitulo, T(f.subtitulo, { x:0.9, y:y, w:11.0, h:espacoSub, fontSize:24, italic:true, color:C.MUTED }, 15));
   if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:0.9, y:6.40, w:6.0, h:0.38, fontSize:15, color:C.MUTED, charSpacing:4 }));
   s.addShape('rect', { x:0.9, y:6.15, w:1.6, h:0.045, fill:{color:C.GOLD}, line:{color:C.GOLD} });
 };
@@ -1003,8 +1051,7 @@ function validarRoteiro(r){
    ========================================================================== */
 function montar(roteiro){
   normalizarSlides(roteiro);
-  if (roteiro.paleta && PALETAS[roteiro.paleta] && roteiro.paleta !== PALETA_ATIVA) aplicarPaleta(roteiro.paleta);
-  roteiro.paleta = PALETA_ATIVA;
+  roteiro.paleta = PALETA_ATIVA;   // a bolinha marcada na tela e a unica verdade
   const pres = new PptxGenJS();
   pres.layout = 'LAYOUT_WIDE';            // ANTES de qualquer slide
   pres.author = 'Bispo Enéas Araújo';
@@ -1675,7 +1722,15 @@ async function gerar(){
   const v = validar(true); if (!v) return;
   if (v.avisos.some(a => a.tipo==='erro')) { alert('Corrija os erros antes de gerar.'); return; }
   // as medidas dependem da fonte real: só desenhar depois que Cinzel e Cormorant carregarem
-  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch(e){}
+  try {
+    if (document.fonts){
+      await Promise.all([
+        document.fonts.load('700 52px Cinzel'), document.fonts.load('600 24px Cinzel'),
+        document.fonts.load('400 21px "Cormorant Garamond"'), document.fonts.load('italic 400 24px "Cormorant Garamond"')
+      ]);
+      await document.fonts.ready;
+    }
+  } catch(e){}
   try { await montar(v.roteiro); } catch(e){ console.error(e); alert('Falha ao gerar: ' + e.message); }
 }
 function carregarDemo(){
