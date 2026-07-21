@@ -189,6 +189,11 @@
   #progresso .passo{flex:1; font-size:13px; font-weight:600; color:var(--accent)}
   #progresso .relogio{font-size:12px; color:var(--muted)}
   #progresso .fase{margin-top:7px; font-size:12.5px; color:var(--muted)}
+  #progresso .historico{
+    margin-top:10px; padding-top:9px; border-top:1px solid var(--linha);
+    display:flex; flex-direction:column; gap:2px;
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--muted); opacity:.75;
+  }
   .giro{
     width:15px; height:15px; flex:0 0 15px; border-radius:50%;
     border:2px solid var(--linha); border-top-color:var(--accent); animation:girar .85s linear infinite;
@@ -278,6 +283,7 @@
     <div class="metricas" id="metricas"></div>
     <div class="barra">
       <button class="primario" id="btnIA" onclick="gerarRoteiroIA()">Gerar roteiro com IA</button>
+      <button id="btnParar" onclick="pararGeracao()" style="display:none">Parar</button>
       <button onclick="baixarExtracao()">Baixar extra&ccedil;&atilde;o</button>
       <button onclick="verTextoBruto()">Ver texto corrido</button>
     </div>
@@ -337,7 +343,7 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.4';
+const VERSAO = '4.5';
 const DATA_VERSAO = '21/07/2026';
 
 function selo(txt, cor){
@@ -1352,6 +1358,11 @@ function trocarAba(id){
    6-C. ETAPA 3 — CAMADA DE IA (Worker + Claude)
    ========================================================================== */
 const MODELO = 'claude-sonnet-5';   // a escolha de layout exige julgamento editorial
+const LIMITE_CHAMADAS = 12;         // teto duro de chamadas por documento
+const LIMITE_MINUTOS  = 8;          // teto duro de tempo total
+const LIMITE_SEG_CHAMADA = 150;     // uma chamada presa e abandonada
+const LIMITE_DIVISOES = 2;          // quantas vezes um trecho pode ser partido
+let CHAMADAS = 0, CANCELAR = false, ABORTADOR = null;
 const MAX_TOKENS = 16000;           // roteiro completo com notas do orador não cabe em 8000
 const MAX_CHARS_LOTE = 7000;        // teto de texto por chamada (lotes menores = respostas mais rápidas)
 
@@ -1448,6 +1459,11 @@ ${catalogo}
 
 Priorize neste documento: ${USO[perfil]}
 
+LIMITE POR RESPOSTA
+Gere no máximo 12 slides por trecho recebido. Se o conteúdo pedir mais, priorize
+o essencial e registre em "avisos" o que ficou de fora. Uma resposta longa demais
+é cortada pelo servidor e se perde inteira.
+
 SAÍDA
 Apenas o objeto JSON, neste formato exato:
 {"titulo":"…","subtitulo":"…","serie":"…","avisos":["…"],
@@ -1532,15 +1548,30 @@ async function chamarIA(sistema, pedido, tentativa){
   tentativa = tentativa || 1;
   const url = (document.getElementById('workerUrl').value || '').trim();
   if (!url) throw new Error('Informe a URL do Worker.');
+  if (CANCELAR) throw new Error('CANCELADO');
+  if (CHAMADAS >= LIMITE_CHAMADAS) throw new Error('ORCAMENTO');
   if (tentativa > 1) fase('Refazendo (tentativa ' + tentativa + ' de 3)…');
 
-  const r = await fetch(url, {
-    method:'POST',
-    headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ model:MODELO, max_tokens:MAX_TOKENS, system:sistema, stream:true,
-                           messages:[{ role:'user', content: pedido }] })
-  });
-  if (!r.ok || !r.body) throw new Error(interpretarErro(r.status, await r.text().catch(()=>'')));
+  CHAMADAS++;
+  registrar('chamada ' + CHAMADAS + (tentativa > 1 ? ' (tentativa ' + tentativa + ')' : ''));
+
+  // prazo por chamada: uma conexao presa nao trava o processo inteiro
+  ABORTADOR = new AbortController();
+  const relogio = setTimeout(() => { try { ABORTADOR.abort(); } catch(e){} }, LIMITE_SEG_CHAMADA * 1000);
+
+  let r;
+  try {
+    r = await fetch(url, {
+      method:'POST', signal: ABORTADOR.signal,
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:MODELO, max_tokens:MAX_TOKENS, system:sistema, stream:true,
+                             messages:[{ role:'user', content: pedido }] })
+    });
+  } catch(e){
+    clearTimeout(relogio);
+    throw new Error(CANCELAR ? 'CANCELADO' : 'TIMEOUT');
+  }
+  if (!r.ok || !r.body) { clearTimeout(relogio); throw new Error(interpretarErro(r.status, await r.text().catch(()=>''))); }
 
   // leitura do fluxo de eventos (SSE)
   const leitor = r.body.getReader();
@@ -1548,7 +1579,11 @@ async function chamarIA(sistema, pedido, tentativa){
   let buf = '', bruto = '', parada = null, erroApi = null, ultimo = 0;
 
   while (true) {
-    const { done, value } = await leitor.read();
+    if (CANCELAR) { try { await leitor.cancel(); } catch(e){} clearTimeout(relogio); throw new Error('CANCELADO'); }
+    let passo;
+    try { passo = await leitor.read(); }
+    catch(e){ clearTimeout(relogio); throw new Error(CANCELAR ? 'CANCELADO' : 'TIMEOUT'); }
+    const { done, value } = passo;
     if (done) break;
     buf += dec.decode(value, { stream:true });
     const linhas = buf.split('\n');
@@ -1568,8 +1603,9 @@ async function chamarIA(sistema, pedido, tentativa){
       fase(`Recebendo o roteiro… ${slidesAteAqui} slide(s) escritos, ${bruto.length.toLocaleString('pt-BR')} caracteres.`);
     }
   }
+  clearTimeout(relogio);
   if (erroApi) throw new Error(erroApi);
-  if (parada === 'max_tokens') throw new Error('TRUNCADO');
+  if (parada === 'max_tokens') { registrar('resposta cortada no limite de tamanho'); throw new Error('TRUNCADO'); }
 
   fase('Validando o roteiro recebido…');
   try {
@@ -1590,6 +1626,12 @@ async function chamarIA(sistema, pedido, tentativa){
 
 /* --- 6C.8 painel de progresso --- */
 let _crono = null, _t0 = 0, _fase = '', _passo = '';
+const EVENTOS = [];
+function registrar(texto){
+  const seg = Math.floor((Date.now() - _t0) / 1000);
+  EVENTOS.push(String(Math.floor(seg/60)).padStart(2,'0') + ':' + String(seg%60).padStart(2,'0') + '  ' + texto);
+  mostrarProgresso();
+}
 
 function mostrarProgresso(){
   const seg = Math.floor((Date.now() - _t0) / 1000);
@@ -1600,6 +1642,7 @@ function mostrarProgresso(){
          <span class="passo">${_passo}</span>
          <span class="relogio">${mm}:${ss}</span></div>
        <div class="fase">${_fase}</div>
+       ${EVENTOS.length ? '<div class="historico">' + EVENTOS.slice(-5).map(e => '<span>' + e + '</span>').join('') + '</div>' : ''}
      </div>`;
 }
 function iniciarCrono(){ _t0 = Date.now(); clearInterval(_crono); _crono = setInterval(mostrarProgresso, 1000); }
@@ -1616,7 +1659,10 @@ async function gerarRoteiroIA(){
 
   const sistema = promptSistema(EXTRACAO.perfil);
   const fila = fatiar(EXTRACAO);
+  fila.forEach(l => l.nivel = 0);
   const total = fila.length;
+  CHAMADAS = 0; CANCELAR = false; EVENTOS.length = 0;
+  document.getElementById('btnParar').style.display = '';
   const roteiro = { titulo:'', subtitulo:'', serie:'', paleta:PALETA_ATIVA, avisos:[], slides:[] };
   const problemas = [];
   let feitos = 0, primeiro = true;
@@ -1624,6 +1670,15 @@ async function gerarRoteiroIA(){
   iniciarCrono();
   try {
     while (fila.length) {
+      if (CANCELAR) throw new Error('CANCELADO');
+      if (CHAMADAS >= LIMITE_CHAMADAS){
+        roteiro.avisos.push('Processo interrompido no limite de ' + LIMITE_CHAMADAS + ' chamadas. Faltaram ' + fila.length + ' trecho(s).');
+        registrar('teto de chamadas atingido'); break;
+      }
+      if (Date.now() - _t0 > LIMITE_MINUTOS * 60000){
+        roteiro.avisos.push('Processo interrompido em ' + LIMITE_MINUTOS + ' minutos. Faltaram ' + fila.length + ' trecho(s).');
+        registrar('teto de tempo atingido'); break;
+      }
       const l = fila.shift();
       passo(`Trecho ${feitos+1}${total>1 ? ' de ' + Math.max(total, feitos + 1 + fila.length) : ''} — ${l.rotulo}`);
       fase('Enviando ao Claude… a resposta chega aos poucos, acompanhe abaixo.');
@@ -1638,14 +1693,26 @@ async function gerarRoteiroIA(){
       try {
         resposta = await chamarIA(sistema, pedido);
       } catch(e) {
-        // resposta cortada: parte o trecho ao meio e devolve os dois à fila
-        if ((e.message === 'TRUNCADO' || e.message === 'TIMEOUT') && l.blocos.length > 3) {
+        if (e.message === 'CANCELADO' || e.message === 'ORCAMENTO') throw e;
+
+        // resposta cortada ou tempo esgotado: parte o trecho ao meio — no maximo duas vezes
+        const podeDividir = (e.message === 'TRUNCADO' || e.message === 'TIMEOUT')
+                            && l.blocos.length > 3 && (l.nivel || 0) < LIMITE_DIVISOES;
+        if (podeDividir) {
           const meio = Math.ceil(l.blocos.length / 2);
-          fase(e.message === 'TIMEOUT'
-            ? 'Tempo esgotado neste trecho. Dividindo em dois pedaços menores e continuando…'
-            : 'Trecho longo demais para uma resposta só. Dividindo em dois e continuando…');
-          fila.unshift({ rotulo: l.rotulo + ' (parte 2)', blocos: l.blocos.slice(meio) });
-          fila.unshift({ rotulo: l.rotulo + ' (parte 1)', blocos: l.blocos.slice(0, meio) });
+          const n = (l.nivel || 0) + 1;
+          registrar('dividindo "' + l.rotulo + '" (divisao ' + n + ' de ' + LIMITE_DIVISOES + ')');
+          fase('Trecho pesado demais. Dividindo em dois pedaços menores e continuando…');
+          fila.unshift({ rotulo: l.rotulo + '·B', blocos: l.blocos.slice(meio), nivel:n });
+          fila.unshift({ rotulo: l.rotulo + '·A', blocos: l.blocos.slice(0, meio), nivel:n });
+          continue;
+        }
+        // ja dividido ao maximo: desiste DESTE trecho e segue com os demais
+        if (e.message === 'TRUNCADO' || e.message === 'TIMEOUT') {
+          const motivo = e.message === 'TIMEOUT' ? 'tempo esgotado' : 'resposta cortada';
+          roteiro.avisos.push('Trecho não convertido (' + motivo + '): ' + l.rotulo + '. Gere este pedaço separadamente.');
+          registrar('desistindo de "' + l.rotulo + '" — ' + motivo);
+          problemas.push(l.rotulo + ': ' + motivo);
           continue;
         }
         throw e;
@@ -1666,6 +1733,7 @@ async function gerarRoteiroIA(){
       normalizarSlides(roteiro);
       erros.forEach(e => problemas.push(`${l.rotulo}: ${e}`));
       feitos++;
+      registrar('trecho concluido: ' + (obj.slides || []).length + ' slides');
 
       // resultado parcial já visível: se algo falhar adiante, o trabalho não se perde
       document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
@@ -1678,21 +1746,42 @@ async function gerarRoteiroIA(){
     validar(true);
     pararCrono();
     const seg = Math.floor((Date.now() - _t0)/1000);
-    document.getElementById('progresso').innerHTML =
-      `<div class="aviso ok">Roteiro pronto: <b>${roteiro.slides.length} slides</b> em ${feitos} chamada(s), ${seg}s. Confira na aba 2 antes de gerar.</div>`;
+    const caixa = document.getElementById('progresso');
+
+    if (!roteiro.slides.length){
+      caixa.innerHTML = `<div class="aviso erro">Nenhum slide foi gerado em ${seg}s.
+        A IA não conseguiu converter nenhum trecho deste documento — veja o histórico acima.
+        Tente novamente; se repetir, o documento pode ter algum trecho que a trava.</div>`;
+      return;
+    }
+    if (problemas.length){
+      caixa.innerHTML = `<div class="aviso">Roteiro <b>parcial</b>: ${roteiro.slides.length} slides em ${seg}s,
+        mas ${problemas.length} trecho(s) não foram convertidos. Os avisos no roteiro dizem quais.</div>`;
+    } else {
+      caixa.innerHTML = `<div class="aviso ok">Roteiro pronto: <b>${roteiro.slides.length} slides</b> em ${feitos} chamada(s), ${seg}s. Confira na aba 2 antes de gerar.</div>`;
+    }
     trocarAba('roteiro');
   } catch(e){
     console.error(e);
     pararCrono();
     const parcial = roteiro.slides.length ? ` Os ${roteiro.slides.length} slides já obtidos ficaram na aba 2.` : '';
+    if (roteiro.slides.length){
+      normalizarSlides(roteiro);
+      document.getElementById('json').value = JSON.stringify(roteiro, null, 2);
+      listar(roteiro);
+    }
     document.getElementById('progresso').innerHTML =
       `<div class="aviso erro">${
+        e.message === 'CANCELADO' ? 'Geração interrompida.' :
+        e.message === 'ORCAMENTO' ? `Limite de ${LIMITE_CHAMADAS} chamadas atingido — o documento estava exigindo mais do que o razoável.` :
         e.message === 'TRUNCADO' ? 'A resposta da IA foi cortada e o trecho não pôde ser dividido mais.' :
-        e.message === 'TIMEOUT'  ? 'Tempo esgotado na Cloudflare mesmo com o trecho já dividido ao mínimo.' :
+        e.message === 'TIMEOUT'  ? 'Tempo esgotado mesmo com o trecho já dividido ao mínimo.' :
         e.message}${parcial}</div>`;
   } finally {
+    pararCrono();
     btn.disabled = false;
     btn.textContent = 'Gerar roteiro com IA';
+    document.getElementById('btnParar').style.display = 'none';
   }
 }
 
@@ -1718,6 +1807,12 @@ function desenharWorker(editando){
       '<button onclick="salvarWorker()">Salvar</button>' +
       (salvo ? '<button class="link" onclick="desenharWorker(false)">cancelar</button>' : '');
   }
+}
+
+function pararGeracao(){
+  CANCELAR = true;
+  registrar('interrompido pelo usuario');
+  try { if (ABORTADOR) ABORTADOR.abort(); } catch(e){}
 }
 
 function salvarWorker(){
