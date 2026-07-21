@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gerador de Apresentações · Igreja Vidas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --navy:#0F1B33; --deep:#0A1425; --gold:#C9A227; --cream:#F2EDE3;
+    --muted:#9FB0C9; --card:#16253F;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--navy); color:var(--cream);
+    font-family:'Cormorant Garamond',Georgia,serif; font-size:17px;
+  }
+  header{
+    padding:22px 20px 16px; border-bottom:1px solid #24344f;
+    background:linear-gradient(140deg,#0F1B33,#0A1425);
+  }
+  h1{
+    font-family:'Cinzel',serif; font-size:24px; margin:0 0 4px; color:var(--gold);
+    letter-spacing:.5px;
+  }
+  header p{margin:0; color:var(--muted); font-size:15px}
+  main{max-width:1180px; margin:0 auto; padding:20px; display:grid; gap:18px;
+       grid-template-columns:1fr 1fr}
+  @media (max-width:900px){main{grid-template-columns:1fr}}
+  .painel{background:var(--card); border:1px solid #24344f; border-radius:12px; padding:16px}
+  .painel h2{font-family:'Cinzel',serif; font-size:15px; color:var(--gold);
+             margin:0 0 12px; letter-spacing:1px; text-transform:uppercase}
+  textarea{
+    width:100%; height:340px; background:var(--deep); color:var(--cream);
+    border:1px solid #2b3d5c; border-radius:8px; padding:12px;
+    font-family:ui-monospace,Menlo,Consolas,monospace; font-size:12.5px; line-height:1.5;
+    resize:vertical;
+  }
+  .barra{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  button{
+    font-family:'Cinzel',serif; font-size:13px; letter-spacing:.6px;
+    padding:10px 16px; border-radius:8px; border:1px solid var(--gold);
+    background:transparent; color:var(--gold); cursor:pointer;
+  }
+  button:hover{background:rgba(201,162,39,.12)}
+  button.primario{background:var(--gold); color:var(--navy); font-weight:700}
+  button.primario:hover{filter:brightness(1.08)}
+  .lista{max-height:420px; overflow:auto; margin:0; padding:0; list-style:none}
+  .lista li{
+    border-bottom:1px solid #24344f; padding:9px 4px; display:flex; gap:10px;
+    align-items:flex-start; font-size:15px;
+  }
+  .lista li:last-child{border-bottom:0}
+  .idx{color:var(--gold); font-family:'Cinzel',serif; font-size:12px; min-width:26px}
+  .tag{
+    font-family:ui-monospace,monospace; font-size:11px; color:var(--navy);
+    background:var(--muted); border-radius:4px; padding:1px 6px; white-space:nowrap;
+  }
+  .resumo{color:var(--muted); flex:1}
+  #avisos{margin-top:12px; font-size:14.5px}
+  .aviso{border-left:3px solid var(--gold); padding:6px 10px; margin-bottom:6px;
+         background:rgba(201,162,39,.08); border-radius:0 6px 6px 0}
+  .erro{border-left-color:#e06060; background:rgba(224,96,96,.10)}
+  .ok{color:#8fd0a0}
+  footer{padding:14px 20px 40px; text-align:center; color:var(--muted); font-size:13px}
+  code{font-family:ui-monospace,monospace; font-size:12px; color:var(--gold)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Gerador de Apresentações</h1>
+  <p>Etapa 1 — núcleo do gerador · 22 layouts nativos · JSON → PPTX editável</p>
+</header>
+
+<main>
+  <section class="painel">
+    <h2>Roteiro (JSON)</h2>
+    <textarea id="json" spellcheck="false"></textarea>
+    <div class="barra">
+      <button onclick="carregarDemo()">Carregar exemplo</button>
+      <button onclick="validar(true)">Validar</button>
+      <button class="primario" onclick="gerar()">Gerar PPTX</button>
+    </div>
+  </section>
+
+  <section class="painel">
+    <h2>Slides propostos</h2>
+    <ul class="lista" id="lista"><li class="resumo">Carregue ou cole um roteiro.</li></ul>
+    <div id="avisos"></div>
+  </section>
+</main>
+
+<footer>
+  Igreja Vidas · MENTOR — <code>LAYOUT_WIDE 13,33" × 7,5"</code>
+</footer>
+
+<script>
+/* ==========================================================================
+   1. IDENTIDADE VISUAL  (hex SEM "#" — exigência do PptxGenJS)
+   ========================================================================== */
+const C = {
+  NAVY : '0F1B33',
+  DEEP : '0A1425',
+  GOLD : 'C9A227',
+  CREAM: 'F2EDE3',
+  MUTED: '9FB0C9',
+  CARD : '16253F'
+};
+const FT = 'Cinzel';               // títulos
+const FB = 'Cormorant Garamond';   // corpo
+
+const M   = 0.9;    // margem lateral
+const WU  = 11.5;   // largura útil
+const BASE= 7.15;   // limite inferior seguro
+
+/* ==========================================================================
+   2. FUNDOS GRADIENTE  (Canvas → dataURL)
+   ========================================================================== */
+const _bgCache = {};
+function gradienteRadial(cx, cy, cor1, cor2, w = 1920, h = 1080){
+  const chave = [cx,cy,cor1,cor2].join('|');
+  if (_bgCache[chave]) return _bgCache[chave];
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = cor1; ctx.fillRect(0,0,w,h);
+  const g = ctx.createRadialGradient(cx*w, cy*h, 0, cx*w, cy*h, Math.hypot(w,h)*0.6);
+  g.addColorStop(0, cor2);
+  g.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = g; ctx.fillRect(0,0,w,h);
+  const url = c.toDataURL('image/jpeg', 0.9);
+  _bgCache[chave] = url;
+  return url;
+}
+// variantes testadas
+const BG = {
+  capa      : () => gradienteRadial(0.80, 0.18, '#0F1B33', 'rgba(201,162,39,0.26)'),
+  centro    : () => gradienteRadial(0.50, 0.45, '#0A1425', 'rgba(201,162,39,0.20)'),
+  esquerda  : () => gradienteRadial(0.18, 0.50, '#0F1B33', 'rgba(159,176,201,0.18)'),
+  inferior  : () => gradienteRadial(0.50, 0.95, '#0A1425', 'rgba(201,162,39,0.24)'),
+  liso      : () => gradienteRadial(0.50, 0.50, '#0F1B33', 'rgba(22,37,63,0.65)')
+};
+function fundo(slide, variante){
+  slide.background = { data: BG[variante || 'liso']() };
+}
+
+/* ==========================================================================
+   3. AJUDANTES  (todo objeto de opções é NOVO a cada chamada)
+   ========================================================================== */
+const txt = (o) => Object.assign({
+  fontFace: FB, color: C.CREAM, valign: 'top', margin: 0, isTextBox: true
+}, o);
+
+function eyebrow(slide, texto, x, y, w){
+  if (!texto) return;
+  slide.addText(String(texto).toUpperCase(), txt({
+    x:x, y:y, w:w||8.0, h:0.35, fontFace:FT, fontSize:14, bold:true,
+    color:C.GOLD, charSpacing:5
+  }));
+}
+function faixaRemate(slide, texto, x, y, w, h){
+  if (!texto) return;
+  slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.GOLD}, rectRadius:0.1, line:{color:C.GOLD} });
+  slide.addText(String(texto), txt({
+    x:x+0.35, y:y, w:w-0.7, h:h, fontSize:20, bold:true, color:C.NAVY,
+    align:'center', valign:'middle'
+  }));
+}
+function cartao(slide, x, y, w, h){
+  slide.addShape('roundRect', { x:x, y:y, w:w, h:h, fill:{color:C.CARD}, rectRadius:0.1, line:{color:'24344F'} });
+}
+function circuloNum(slide, n, x, y, d){
+  d = d || 0.5;
+  slide.addShape('ellipse', { x:x, y:y, w:d, h:d, fill:{color:C.NAVY}, line:{color:C.GOLD, width:1.25} });
+  slide.addText(String(n), txt({
+    x:x, y:y, w:d, h:d, fontFace:FT, fontSize:15, bold:true, color:C.GOLD,
+    align:'center', valign:'middle'
+  }));
+}
+function bullets(slide, itens, o){
+  const linhas = (itens||[]).map(t => ({
+    text: String(t),
+    options: { bullet:{ code:'2022' }, paraSpaceAfter:12 }
+  }));
+  if (!linhas.length) return;
+  slide.addText(linhas, txt(Object.assign({ fontSize:19, lineSpacing:26 }, o)));
+}
+
+/* ==========================================================================
+   4. BIBLIOTECA DE LAYOUTS  (22)
+   ========================================================================== */
+const LAYOUTS = {};
+
+/* --- 4.1 validados no estudo bíblico ----------------------------------- */
+
+LAYOUTS.capa = (s, f) => {
+  fundo(s, 'capa');
+  eyebrow(s, f.eyebrow, 0.9, 1.55, 8.0);
+  if (f.linha1) s.addText(f.linha1, txt({ x:0.85, y:2.15, w:9.0, h:1.0, fontFace:FT, fontSize:52, bold:true, color:C.CREAM }));
+  if (f.linha2) s.addText(f.linha2, txt({ x:0.85, y:3.10, w:9.0, h:1.0, fontFace:FT, fontSize:52, bold:true, color:C.GOLD }));
+  if (f.subtitulo) s.addText(f.subtitulo, txt({ x:0.9, y:4.35, w:7.6, h:0.9, fontSize:24, italic:true, color:C.MUTED }));
+  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:0.9, y:6.40, w:6.0, h:0.35, fontSize:13, color:C.MUTED, charSpacing:4 }));
+  s.addShape('rect', { x:0.9, y:6.15, w:1.6, h:0.045, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+};
+
+LAYOUTS.declaracao = (s, f) => {
+  fundo(s, 'centro');
+  let y = 1.20;
+  (f.antetitulo||[]).forEach(t => {
+    s.addText(String(t).toUpperCase(), txt({ x:M, y:y, w:WU, h:0.34, fontFace:FT, fontSize:13, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
+    y += 0.40;
+  });
+  if (f.frase) s.addText(f.frase, txt({ x:M, y:y+0.25, w:WU, h:3.0, fontFace:FT, fontSize:40, bold:true, color:C.CREAM, align:'center', lineSpacing:48 }));
+  if (f.apoio) s.addText(f.apoio, txt({ x:1.9, y:5.55, w:9.5, h:1.1, fontSize:21, italic:true, color:C.MUTED, align:'center' }));
+};
+
+LAYOUTS.roteiro = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:34, bold:true, color:C.GOLD }));
+  s.addShape('rect', { x:M, y:1.85, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+  const itens = f.itens || [];
+  let y = 2.25;
+  const alt = Math.min(1.05, (BASE - 2.35) / Math.max(itens.length,1));
+  itens.forEach((it,i) => {
+    circuloNum(s, it.num != null ? it.num : (i+1), M, y, 0.48);
+    s.addText(String(it.texto||''), txt({ x:M+0.75, y:y+0.02, w:WU-0.85, h:alt-0.1, fontSize:22, color:C.CREAM }));
+    y += alt;
+  });
+};
+
+LAYOUTS.ponto = (s, f) => {
+  fundo(s, 'liso');
+  s.addShape('rect', { x:0, y:0, w:4.6, h:7.5, fill:{color:C.DEEP}, line:{color:C.DEEP} });
+  s.addShape('rect', { x:4.6, y:0, w:0.05, h:7.5, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+  if (f.num != null) s.addText('PONTO ' + f.num, txt({ x:0.75, y:1.35, w:3.4, h:0.35, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, charSpacing:4 }));
+  if (f.titulo) s.addText(f.titulo, txt({ x:0.75, y:1.90, w:3.5, h:3.2, fontFace:FT, fontSize:27, bold:true, color:C.CREAM, lineSpacing:32 }));
+  if (f.afirmacao) s.addText(f.afirmacao, txt({ x:5.5, y:1.00, w:6.9, h:1.5, fontFace:FT, fontSize:21, bold:true, color:C.GOLD, lineSpacing:26 }));
+  bullets(s, f.corpo, { x:5.5, y:2.60, w:6.9, h:2.5, fontSize:19, color:C.CREAM });
+  if (f.ref || f.sigla) {
+    cartao(s, 5.5, 5.25, 6.9, 1.6);
+    if (f.ref) s.addText(f.ref, txt({ x:5.75, y:5.45, w:6.4, h:0.95, fontSize:18, italic:true, color:C.CREAM, lineSpacing:23 }));
+    if (f.sigla) s.addText(String(f.sigla).toUpperCase(), txt({ x:5.75, y:6.45, w:6.4, h:0.3, fontSize:13, bold:true, color:C.GOLD, charSpacing:3 }));
+  }
+};
+
+LAYOUTS.ilustracao = (s, f) => {
+  fundo(s, 'esquerda');
+  eyebrow(s, f.eyebrow || 'Ilustração', 0.9, 1.15, 5.0);
+  if (f.titulo) s.addText(f.titulo, txt({ x:0.9, y:1.60, w:10.5, h:0.95, fontFace:FT, fontSize:38, bold:true, color:C.CREAM }));
+  if (f.texto) s.addText(f.texto, txt({ x:0.9, y:2.75, w:10.0, h:1.7, fontSize:25, italic:true, color:C.MUTED, lineSpacing:30 }));
+  faixaRemate(s, f.remate, 0.9, 4.90, 10.0, 1.35);
+};
+
+LAYOUTS.contraste = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.GOLD, align:'center' }));
+  const lados = [['esq', M], ['dir', 6.95]];
+  lados.forEach(([k,x]) => {
+    const d = f[k] || {};
+    cartao(s, x, 2.05, 5.45, 2.85);
+    if (d.rotulo) s.addText(String(d.rotulo).toUpperCase(), txt({ x:x+0.35, y:2.35, w:4.75, h:0.35, fontFace:FT, fontSize:15, bold:true, color:C.GOLD, charSpacing:3 }));
+    if (d.texto) s.addText(d.texto, txt({ x:x+0.35, y:2.90, w:4.75, h:1.8, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+  });
+  faixaRemate(s, f.remate, M, 5.30, WU, 1.0);
+};
+
+LAYOUTS.cards3 = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.GOLD }));
+  const itens = (f.itens||[]).slice(0,3);
+  const larg = (WU - 0.6) / Math.max(itens.length,1);
+  itens.forEach((it,i) => {
+    const x = M + i*(larg+0.3);
+    cartao(s, x, 2.15, larg, 3.6);
+    circuloNum(s, it.num != null ? it.num : (i+1), x+0.35, 2.45, 0.5);
+    if (it.titulo) s.addText(it.titulo, txt({ x:x+0.35, y:3.15, w:larg-0.7, h:0.75, fontFace:FT, fontSize:19, bold:true, color:C.CREAM }));
+    if (it.texto) s.addText(it.texto, txt({ x:x+0.35, y:3.95, w:larg-0.7, h:1.65, fontSize:18, color:C.MUTED, lineSpacing:23 }));
+  });
+};
+
+LAYOUTS.chips = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.75, fontFace:FT, fontSize:32, bold:true, color:C.GOLD }));
+  if (f.subtitulo) s.addText(f.subtitulo, txt({ x:M, y:1.75, w:WU, h:0.5, fontSize:20, italic:true, color:C.MUTED }));
+  let x = M, y = 2.60;
+  (f.chips||[]).forEach(t => {
+    const w = Math.min(5.2, 0.55 + String(t).length * 0.135);
+    if (x + w > M + WU) { x = M; y += 0.78; }
+    s.addShape('roundRect', { x:x, y:y, w:w, h:0.6, fill:{color:C.CARD}, rectRadius:0.3, line:{color:C.GOLD, width:0.75} });
+    s.addText(String(t), txt({ x:x, y:y, w:w, h:0.6, fontSize:18, color:C.CREAM, align:'center', valign:'middle' }));
+    x += w + 0.25;
+  });
+  faixaRemate(s, f.remate, M, 5.75, WU, 0.9);
+};
+
+LAYOUTS.perguntas = (s, f) => {
+  fundo(s, 'liso');
+  eyebrow(s, f.eyebrow || 'Para refletir', M, 0.95, 8.0);
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:1.40, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.CREAM }));
+  const itens = f.itens || [];
+  let y = 2.50;
+  const alt = Math.min(1.05, (BASE - 2.60) / Math.max(itens.length,1));
+  itens.forEach((t,i) => {
+    circuloNum(s, i+1, M, y, 0.5);
+    s.addText(String(t), txt({ x:M+0.78, y:y+0.03, w:WU-0.88, h:alt-0.1, fontSize:20, color:C.CREAM, lineSpacing:25 }));
+    y += alt;
+  });
+};
+
+LAYOUTS.cartoes = (s, f) => {
+  fundo(s, 'liso');
+  eyebrow(s, f.eyebrow, M, 0.95, 8.0);
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:1.40, w:WU, h:0.75, fontFace:FT, fontSize:30, bold:true, color:C.GOLD }));
+  const itens = (f.itens||[]).slice(0,4);
+  let y = 2.40;
+  const alt = Math.min(1.35, (BASE - 2.45) / Math.max(itens.length,1) - 0.14);
+  itens.forEach(t => {
+    cartao(s, M, y, WU, alt);
+    s.addShape('rect', { x:M, y:y, w:0.06, h:alt, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+    s.addText(String(t), txt({ x:M+0.35, y:y+0.15, w:WU-0.7, h:alt-0.3, fontSize:18, color:C.CREAM, lineSpacing:23, valign:'middle' }));
+    y += alt + 0.14;
+  });
+};
+
+LAYOUTS.versiculo = (s, f) => {
+  fundo(s, 'centro');
+  eyebrow(s, f.eyebrow || 'Palavra', 0.9, 1.15, 8.0);
+  if (f.texto) s.addText('“' + f.texto + '”', txt({ x:0.9, y:2.00, w:11.0, h:3.0, fontFace:FT, fontSize:40, bold:true, color:C.CREAM, lineSpacing:48, align:'center' }));
+  if (f.ref) s.addText(String(f.ref).toUpperCase(), txt({ x:0.9, y:5.30, w:11.0, h:0.45, fontSize:17, bold:true, color:C.GOLD, charSpacing:4, align:'center' }));
+};
+
+LAYOUTS.texto_longo = (s, f) => {
+  fundo(s, 'liso');
+  eyebrow(s, f.eyebrow, M, 0.95, 8.0);
+  if (f.bloco1) s.addText(f.bloco1, txt({ x:M, y:1.60, w:5.45, h:4.9, fontSize:19, color:C.CREAM, lineSpacing:26 }));
+  if (f.bloco2) s.addText(f.bloco2, txt({ x:6.95, y:1.60, w:5.45, h:4.9, fontSize:19, color:C.CREAM, lineSpacing:26 }));
+  if (f.rodape) s.addText(String(f.rodape).toUpperCase(), txt({ x:M, y:6.70, w:WU, h:0.35, fontSize:13, color:C.MUTED, charSpacing:4 }));
+};
+
+/* --- 4.2 novos: exigidos pelo sermão ----------------------------------- */
+
+LAYOUTS.leitura_biblica = (s, f) => {
+  fundo(s, 'liso');
+  eyebrow(s, f.ref || 'Leitura bíblica', M, 0.95, 8.0);
+  s.addShape('rect', { x:M, y:1.42, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+  const vs = f.versiculos || [];
+  let y = 1.75;
+  const alt = Math.min(1.20, (BASE - 1.85) / Math.max(vs.length,1));
+  vs.forEach(v => {
+    s.addText(String(v.n), txt({ x:M, y:y, w:0.45, h:0.4, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, align:'right' }));
+    s.addText(String(v.texto||''), txt({ x:M+0.60, y:y-0.06, w:WU-0.70, h:alt-0.05, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+    y += alt;
+  });
+  if (f.continua) s.addText('(continua)', txt({ x:M, y:6.85, w:3.0, h:0.3, fontSize:14, italic:true, color:C.MUTED }));
+};
+
+LAYOUTS.cascata = (s, f) => {
+  fundo(s, 'centro');
+  const fr = f.frases || [];
+  const enf = (f.enfase != null) ? Number(f.enfase) : -1;
+  const n = Math.max(fr.length, 1);
+  const alt = Math.min(1.15, (BASE - 1.50) / n);
+  let y = Math.max(1.35, (7.5 - n*alt) / 2);
+  fr.forEach((t,i) => {
+    const destaque = (i === enf);
+    const tam = destaque ? 34 : Math.min(30, 20 + i*3);
+    s.addText(String(t), txt({
+      x:M + i*0.35, y:y, w:WU - i*0.35, h:alt,
+      fontFace:FT, fontSize:tam, bold:destaque || i>0,
+      color: destaque ? C.GOLD : C.CREAM, valign:'middle'
+    }));
+    y += alt;
+  });
+};
+
+LAYOUTS.recapitulacao = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:32, bold:true, color:C.GOLD }));
+  const ls = f.linhas || [];
+  let y = 2.20;
+  const alt = Math.min(1.0, (BASE - 2.30) / Math.max(ls.length,1));
+  ls.forEach(t => {
+    s.addShape('rect', { x:M, y:y+0.22, w:0.28, h:0.035, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+    s.addText(String(t), txt({ x:M+0.55, y:y, w:WU-0.65, h:alt-0.08, fontSize:23, color:C.CREAM, lineSpacing:29 }));
+    y += alt;
+  });
+};
+
+LAYOUTS.contraste_termos = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.75, fontFace:FT, fontSize:30, bold:true, color:C.GOLD, align:'center' }));
+  const lados = [[f.termoA, M], [f.termoB, 6.95]];
+  lados.forEach(([d,x]) => {
+    d = d || {};
+    cartao(s, x, 2.00, 5.45, 2.70);
+    if (d.palavra) s.addText(d.palavra, txt({ x:x+0.3, y:2.30, w:4.85, h:0.8, fontFace:FT, fontSize:28, bold:true, color:C.CREAM, align:'center' }));
+    if (d.glosa) s.addText(d.glosa, txt({ x:x+0.3, y:3.20, w:4.85, h:1.35, fontSize:18, italic:true, color:C.MUTED, align:'center', lineSpacing:23 }));
+  });
+  s.addText('×', txt({ x:6.10, y:3.05, w:0.75, h:0.6, fontFace:FT, fontSize:26, bold:true, color:C.GOLD, align:'center' }));
+  if (f.sintese) s.addText(f.sintese, txt({ x:M, y:5.15, w:WU, h:1.4, fontSize:21, color:C.CREAM, align:'center', lineSpacing:28 }));
+};
+
+LAYOUTS.apelo = (s, f) => {
+  fundo(s, 'inferior');
+  eyebrow(s, f.eyebrow || 'Apelo', M, 1.30, WU);
+  if (f.pergunta) s.addText(f.pergunta, txt({ x:1.2, y:2.20, w:10.9, h:2.6, fontFace:FT, fontSize:38, bold:true, color:C.CREAM, align:'center', lineSpacing:46 }));
+  if (f.apoio) s.addText(f.apoio, txt({ x:2.1, y:5.10, w:9.1, h:1.2, fontSize:22, italic:true, color:C.GOLD, align:'center', lineSpacing:28 }));
+};
+
+/* --- 4.3 novos: exigidos pela apostila do MENTOR ------------------------ */
+
+LAYOUTS.divisor_secao = (s, f) => {
+  fundo(s, 'centro');
+  if (f.rotulo) s.addText(String(f.rotulo).toUpperCase(), txt({ x:M, y:1.45, w:WU, h:0.4, fontFace:FT, fontSize:14, bold:true, color:C.GOLD, charSpacing:5 }));
+  if (f.numero != null) s.addText(String(f.numero), txt({ x:M, y:1.90, w:3.0, h:2.4, fontFace:FT, fontSize:110, bold:true, color:C.GOLD }));
+  if (f.titulo) s.addText(f.titulo, txt({ x:4.05, y:2.35, w:8.3, h:1.7, fontFace:FT, fontSize:38, bold:true, color:C.CREAM, lineSpacing:46 }));
+  if (f.resumo) s.addText(f.resumo, txt({ x:4.05, y:4.25, w:8.3, h:1.6, fontSize:20, italic:true, color:C.MUTED, lineSpacing:26 }));
+  s.addShape('rect', { x:3.75, y:1.95, w:0.04, h:3.6, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+};
+
+LAYOUTS.citacao_autor = (s, f) => {
+  fundo(s, 'esquerda');
+  s.addText('“', txt({ x:M, y:0.90, w:1.2, h:1.2, fontFace:FT, fontSize:80, bold:true, color:C.GOLD }));
+  if (f.citacao) s.addText(f.citacao, txt({ x:M+1.05, y:1.55, w:WU-1.05, h:3.1, fontSize:26, italic:true, color:C.CREAM, lineSpacing:34 }));
+  s.addShape('rect', { x:M+1.05, y:5.05, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+  if (f.autor) s.addText(String(f.autor).toUpperCase(), txt({ x:M+1.05, y:5.30, w:WU-1.05, h:0.4, fontFace:FT, fontSize:16, bold:true, color:C.GOLD, charSpacing:3 }));
+  if (f.obra) s.addText(f.obra, txt({ x:M+1.05, y:5.75, w:WU-1.05, h:0.5, fontSize:18, italic:true, color:C.MUTED }));
+};
+
+LAYOUTS.definicao = (s, f) => {
+  fundo(s, 'liso');
+  const duplo = !!(f.contraTermo);
+  eyebrow(s, 'Definição', M, 0.95, 6.0);
+  if (duplo) {
+    const lados = [[f.termo, f.definicao, M], [f.contraTermo, f.contraDefinicao, 6.95]];
+    lados.forEach(([tm, df, x], i) => {
+      cartao(s, x, 1.90, 5.45, 3.9);
+      if (tm) s.addText(tm, txt({ x:x+0.35, y:2.20, w:4.75, h:0.85, fontFace:FT, fontSize:30, bold:true, color: i===0 ? C.GOLD : C.MUTED }));
+      s.addShape('rect', { x:x+0.35, y:3.10, w:1.1, h:0.035, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+      if (df) s.addText(df, txt({ x:x+0.35, y:3.35, w:4.75, h:2.2, fontSize:19, color:C.CREAM, lineSpacing:25 }));
+    });
+  } else {
+    if (f.termo) s.addText(f.termo, txt({ x:M, y:1.55, w:WU, h:1.1, fontFace:FT, fontSize:46, bold:true, color:C.GOLD }));
+    s.addShape('rect', { x:M, y:2.80, w:1.4, h:0.04, fill:{color:C.GOLD}, line:{color:C.GOLD} });
+    if (f.definicao) s.addText(f.definicao, txt({ x:M, y:3.15, w:WU, h:3.0, fontSize:24, color:C.CREAM, lineSpacing:32 }));
+  }
+};
+
+LAYOUTS.tabela = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:30, bold:true, color:C.GOLD }));
+  const cols = f.colunas || [];
+  const linhas = f.linhas || [];
+  if (!cols.length) return;
+  const cabec = cols.map(c => ({
+    text: String(c).toUpperCase(),
+    options: { fontFace:FT, fontSize:14, bold:true, color:C.NAVY, fill:{color:C.GOLD}, valign:'middle', margin:6 }
+  }));
+  const corpo = linhas.map((ln, i) => ln.map(cel => ({
+    text: String(cel == null ? '' : cel),
+    options: { fontFace:FB, fontSize:17, color:C.CREAM, fill:{color: i%2 ? C.CARD : '12203A'}, valign:'middle', margin:6 }
+  })));
+  const lg = WU / cols.length;
+  s.addTable([cabec].concat(corpo), {
+    x:M, y:2.00, w:WU, colW: cols.map(() => lg),
+    border: { type:'solid', color:'24344F', pt:1 },
+    autoPage: false
+  });
+};
+
+LAYOUTS.metodo_etapas = (s, f) => {
+  fundo(s, 'liso');
+  if (f.titulo) s.addText(f.titulo, txt({ x:M, y:0.95, w:WU, h:0.8, fontFace:FT, fontSize:30, bold:true, color:C.GOLD }));
+  const et = (f.etapas||[]).slice(0,4);
+  const larg = (WU - (et.length-1)*0.35) / Math.max(et.length,1);
+  et.forEach((e,i) => {
+    const x = M + i*(larg+0.35);
+    cartao(s, x, 2.20, larg, 3.4);
+    circuloNum(s, e.num != null ? e.num : (i+1), x + larg/2 - 0.29, 2.50, 0.58);
+    if (e.titulo) s.addText(e.titulo, txt({ x:x+0.25, y:3.25, w:larg-0.5, h:0.75, fontFace:FT, fontSize:18, bold:true, color:C.CREAM, align:'center' }));
+    if (e.texto) s.addText(e.texto, txt({ x:x+0.25, y:4.05, w:larg-0.5, h:1.4, fontSize:17, color:C.MUTED, align:'center', lineSpacing:22 }));
+    if (i < et.length-1) {
+      s.addText('›', txt({ x:x+larg+0.02, y:3.55, w:0.31, h:0.5, fontFace:FT, fontSize:24, bold:true, color:C.GOLD, align:'center' }));
+    }
+  });
+};
+
+/* ==========================================================================
+   5. VALIDAÇÃO (regra 7 da seção 6: título ≤60, item ≤140, máx. 4 itens)
+   ========================================================================== */
+const LIM_TITULO = 60, LIM_FRASE = 95, LIM_ITEM = 140, MAX_ITENS = 4;
+
+function validarRoteiro(r){
+  const avisos = [];
+  (r.avisos||[]).forEach(a => avisos.push({ tipo:'ia', msg:a }));
+  (r.slides||[]).forEach((sl, i) => {
+    const n = i+1;
+    if (!LAYOUTS[sl.layout]) {
+      avisos.push({ tipo:'erro', msg:`Slide ${n}: layout "${sl.layout}" não existe na biblioteca.` });
+      return;
+    }
+    const f = sl.campos || {};
+    [['titulo',LIM_TITULO],['afirmacao',LIM_TITULO],['termo',LIM_TITULO],
+     ['frase',LIM_FRASE],['pergunta',LIM_FRASE]].forEach(([k,lim]) => {
+      if (f[k] && String(f[k]).length > lim)
+        avisos.push({ tipo:'aviso', msg:`Slide ${n} (${sl.layout}): campo "${k}" com ${String(f[k]).length} caracteres (limite ${lim}).` });
+    });
+    ['corpo','itens','linhas','chips','frases','versiculos','etapas'].forEach(k => {
+      const arr = f[k];
+      if (!Array.isArray(arr)) return;
+      if (arr.length > MAX_ITENS && k !== 'chips' && k !== 'frases' && k !== 'versiculos')
+        avisos.push({ tipo:'aviso', msg:`Slide ${n} (${sl.layout}): ${arr.length} itens em "${k}" (máximo recomendado ${MAX_ITENS}).` });
+      arr.forEach((it, j) => {
+        const t = (typeof it === 'string') ? it : (it.texto || it.titulo || '');
+        if (String(t).length > LIM_ITEM)
+          avisos.push({ tipo:'aviso', msg:`Slide ${n} (${sl.layout}): item ${j+1} de "${k}" com ${String(t).length} caracteres (limite ${LIM_ITEM}).` });
+      });
+    });
+    if (!sl.notas && !['capa','divisor_secao'].includes(sl.layout))
+      avisos.push({ tipo:'aviso', msg:`Slide ${n} (${sl.layout}): sem notas do orador.` });
+  });
+  return avisos;
+}
+
+/* ==========================================================================
+   6. GERAÇÃO
+   ========================================================================== */
+function montar(roteiro){
+  const pres = new PptxGenJS();
+  pres.layout = 'LAYOUT_WIDE';            // ANTES de qualquer slide
+  pres.author = 'Bispo Enéas Araújo';
+  pres.company = 'Igreja Vidas';
+  pres.title = roteiro.titulo || 'Apresentação';
+  pres.subject = roteiro.subtitulo || '';
+
+  (roteiro.slides||[]).forEach(sl => {
+    const fn = LAYOUTS[sl.layout];
+    if (!fn) return;
+    const slide = pres.addSlide();
+    fn(slide, sl.campos || {}, pres);
+    if (sl.notas) slide.addNotes(String(sl.notas));
+  });
+
+  const nome = (roteiro.titulo || 'apresentacao')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-zA-Z0-9]+/g,'-').replace(/^-|-$/g,'').toLowerCase();
+  return pres.writeFile({ fileName: nome + '.pptx' });
+}
+
+/* ==========================================================================
+   7. INTERFACE
+   ========================================================================== */
+function lerJSON(){
+  try { return JSON.parse(document.getElementById('json').value); }
+  catch(e){ mostrarAvisos([{ tipo:'erro', msg:'JSON inválido: ' + e.message }]); return null; }
+}
+function mostrarAvisos(avisos){
+  const box = document.getElementById('avisos');
+  if (!avisos.length) { box.innerHTML = '<div class="aviso ok">Sem pendências. Roteiro pronto para gerar.</div>'; return; }
+  box.innerHTML = avisos.map(a =>
+    `<div class="aviso ${a.tipo==='erro'?'erro':''}">${a.tipo==='ia'?'⚑ ':''}${a.msg}</div>`
+  ).join('');
+}
+function listar(r){
+  const ul = document.getElementById('lista');
+  ul.innerHTML = (r.slides||[]).map((sl,i) => {
+    const f = sl.campos||{};
+    const res = f.titulo || f.frase || f.linha1 || f.termo || f.pergunta || f.ref ||
+                f.eyebrow || (f.frases&&f.frases[0]) || f.autor || '—';
+    return `<li><span class="idx">${String(i+1).padStart(2,'0')}</span>
+            <span class="tag">${sl.layout}</span>
+            <span class="resumo">${String(res).slice(0,90)}</span></li>`;
+  }).join('') || '<li class="resumo">Nenhum slide no roteiro.</li>';
+}
+function validar(mostrar){
+  const r = lerJSON(); if (!r) return null;
+  listar(r);
+  const av = validarRoteiro(r);
+  if (mostrar) mostrarAvisos(av);
+  return { roteiro:r, avisos:av };
+}
+function gerar(){
+  const v = validar(true); if (!v) return;
+  if (v.avisos.some(a => a.tipo==='erro')) { alert('Corrija os erros antes de gerar.'); return; }
+  montar(v.roteiro).catch(e => { console.error(e); alert('Falha ao gerar: ' + e.message); });
+}
+function carregarDemo(){
+  document.getElementById('json').value = JSON.stringify(DEMO, null, 2);
+  validar(true);
+}
+
+/* ==========================================================================
+   8. JSON FIXO DE TESTE — exercita os 22 layouts
+   ========================================================================== */
+const DEMO = {
+  "titulo": "O Livro que Deus Escreveu",
+  "subtitulo": "A doutrina das Escrituras",
+  "serie": "Cremos Assim · Estudo 01",
+  "avisos": [
+    "Roteiro de teste da Etapa 1: um slide por layout, para conferência visual."
+  ],
+  "slides": [
+    { "layout":"capa", "campos":{
+        "eyebrow":"CREMOS ASSIM · ESTUDO 01",
+        "linha1":"O Livro que",
+        "linha2":"Deus Escreveu",
+        "subtitulo":"A doutrina das Escrituras · 2 Timóteo 3.16-17",
+        "rodape":"IGREJA VIDAS" } },
+
+    { "layout":"declaracao", "campos":{
+        "antetitulo":["Nossa confissão","Artigo primeiro"],
+        "frase":"A Bíblia é a Palavra de Deus, escrita por homens.",
+        "apoio":"Inspiração não é ditado. É providência que preserva o homem e garante o texto." },
+      "notas":"Abrir situando a série. Não avançar antes de fixar esta frase." },
+
+    { "layout":"roteiro", "campos":{
+        "titulo":"O caminho de hoje",
+        "itens":[
+          {"num":1,"texto":"De onde veio a Bíblia"},
+          {"num":2,"texto":"Por que confiamos nela"},
+          {"num":3,"texto":"O que ela exige de nós"}
+        ] },
+      "notas":"Roteiro em 40 segundos. Não explicar os pontos aqui." },
+
+    { "layout":"ponto", "campos":{
+        "num":1,
+        "titulo":"De onde veio a Bíblia",
+        "afirmacao":"Deus falou. Homens escreveram. O texto é de Deus.",
+        "corpo":[
+          "Quarenta autores, mil e seiscentos anos, três idiomas.",
+          "Uma só história, do Éden à Nova Jerusalém.",
+          "A unidade do livro é o argumento mais simples da sua origem."
+        ],
+        "ref":"Toda a Escritura é inspirada por Deus e útil para o ensino, para a repreensão, para a correção.",
+        "sigla":"2 Timóteo 3.16 · ARA" },
+      "notas":"Exegese de theopneustos: soprada por Deus, não inspiradora." },
+
+    { "layout":"ilustracao", "campos":{
+        "eyebrow":"Ilustração",
+        "titulo":"A carta e o carteiro",
+        "texto":"Ninguém confunde a letra do carteiro com a letra de quem escreveu. O estilo de Paulo é de Paulo. A carta é de Deus.",
+        "remate":"O instrumento humano não contamina a mensagem divina." },
+      "notas":"Ilustração curta. Não alongar." },
+
+    { "layout":"contraste", "campos":{
+        "titulo":"Duas maneiras de tratar o texto",
+        "esq":{"rotulo":"Exegese","texto":"Tirar do texto o que ele diz. O leitor se submete."},
+        "dir":{"rotulo":"Eisegese","texto":"Colocar no texto o que eu quero. O texto se submete."},
+        "remate":"A diferença entre pregar a Palavra e usá-la." },
+      "notas":"Ponte para o ponto 2." },
+
+    { "layout":"cards3", "campos":{
+        "titulo":"Três marcas da Escritura",
+        "itens":[
+          {"num":1,"titulo":"Inspirada","texto":"Origem divina, mediação humana."},
+          {"num":2,"titulo":"Suficiente","texto":"Nada falta para a fé e a prática."},
+          {"num":3,"titulo":"Clara","texto":"O essencial é acessível ao crente comum."}
+        ] },
+      "notas":"Perspicuidade não significa que tudo é fácil." },
+
+    { "layout":"chips", "campos":{
+        "titulo":"Vocabulário do estudo",
+        "subtitulo":"Termos que voltarão nas próximas semanas",
+        "chips":["Inspiração","Inerrância","Suficiência","Perspicuidade","Cânon","Iluminação"],
+        "remate":"Palavra antiga, doutrina viva." },
+      "notas":"Passar rápido. Cada termo terá seu estudo." },
+
+    { "layout":"perguntas", "campos":{
+        "eyebrow":"Para o grupo",
+        "titulo":"Conversa em duplas",
+        "itens":[
+          "Quando foi a última vez que a Bíblia te contrariou?",
+          "Você lê para confirmar o que já pensa?",
+          "O que muda se ela for mesmo de Deus?"
+        ] },
+      "notas":"Cinco minutos. Depois recolher duas respostas." },
+
+    { "layout":"cartoes", "campos":{
+        "eyebrow":"Objeções comuns",
+        "titulo":"O que costumam dizer",
+        "itens":[
+          "Foi escrita por homens, então tem erro de homem.",
+          "Foi traduzida tantas vezes que não sobrou o original.",
+          "Cada um interpreta do seu jeito."
+        ] },
+      "notas":"Responder uma por vez, sem ironia." },
+
+    { "layout":"versiculo", "campos":{
+        "eyebrow":"Texto base",
+        "texto":"Lâmpada para os meus pés é a tua palavra, e luz para o meu caminho.",
+        "ref":"Salmo 119.105 · ARA" },
+      "notas":"Ler em voz alta e deixar em silêncio três segundos." },
+
+    { "layout":"texto_longo", "campos":{
+        "eyebrow":"Oração de abertura",
+        "bloco1":"Senhor, abre os nossos olhos para vermos as maravilhas da tua lei. Não nos deixes ouvir a tua voz como quem ouve notícia velha.",
+        "bloco2":"Dá-nos coração dócil diante do que lermos, coragem para obedecer ao que entendermos e paciência com o que ainda não compreendemos.",
+        "rodape":"Igreja Vidas · Cremos Assim" },
+      "notas":"Ler devagar. Congregação em pé." },
+
+    { "layout":"leitura_biblica", "campos":{
+        "ref":"Hebreus 10.10-14",
+        "versiculos":[
+          {"n":10,"texto":"Nessa vontade é que temos sido santificados, mediante a oferta do corpo de Jesus Cristo, uma vez por todas."},
+          {"n":11,"texto":"Todo sacerdote se apresenta dia após dia, ministrando e oferecendo muitas vezes os mesmos sacrifícios."},
+          {"n":12,"texto":"Mas Jesus, tendo oferecido para sempre um único sacrifício pelos pecados, assentou-se à destra de Deus."}
+        ],
+        "continua":true },
+      "notas":"Leitura corrida. Não comentar ainda." },
+
+    { "layout":"cascata", "campos":{
+        "frases":["A cruz.","A cruz é o ponto de partida.","A cruz é o ponto de partida de tudo o que somos."],
+        "enfase":2 },
+      "notas":"Ritmo. Pausa entre as linhas." },
+
+    { "layout":"recapitulacao", "campos":{
+        "titulo":"O que ficou",
+        "linhas":[
+          "Deus falou, e o que falou está escrito.",
+          "O escrito basta para a fé e a vida.",
+          "O claro é claro para quem quer ver.",
+          "Quem crê no Livro obedece ao Autor."
+        ] },
+      "notas":"Quatro linhas simétricas. Não improvisar aqui." },
+
+    { "layout":"contraste_termos", "campos":{
+        "titulo":"Um verbo muda o argumento",
+        "termoA":{"palavra":"aperfeiçoou","glosa":"Aoristo. Ato concluído na cruz, sem repetição."},
+        "termoB":{"palavra":"sendo santificados","glosa":"Presente contínuo. Processo em curso no crente."},
+        "sintese":"Posição perfeita, condição em progresso. O texto sustenta as duas." },
+      "notas":"Aqui é onde o ouvinte respira aliviado." },
+
+    { "layout":"apelo", "campos":{
+        "eyebrow":"Diante de Deus",
+        "pergunta":"Você está tentando acrescentar alguma coisa ao que já foi consumado?",
+        "apoio":"Está consumado. Não há o que somar." },
+      "notas":"Tom baixo. Silêncio antes de chamar à frente." },
+
+    { "layout":"divisor_secao", "campos":{
+        "rotulo":"Unidade 1 · Fundamentos do estudo",
+        "numero":"03",
+        "titulo":"Métodos de anotação",
+        "resumo":"Como registrar o que se lê de modo que sirva daqui a cinco anos." },
+      "notas":"Marco de navegação da apostila." },
+
+    { "layout":"citacao_autor", "campos":{
+        "autor":"John Stott",
+        "obra":"O Perfil do Pregador",
+        "citacao":"A ponte precisa estar firme nas duas margens: no mundo do texto e no mundo do ouvinte." },
+      "notas":"Citação da seção 7. Comentar em uma frase." },
+
+    { "layout":"definicao", "campos":{
+        "termo":"Exegese",
+        "definicao":"Trabalho de extrair do texto o sentido que o autor quis comunicar, respeitando gramática, contexto e gênero.",
+        "contraTermo":"Eisegese",
+        "contraDefinicao":"Prática de introduzir no texto um sentido que lhe é estranho, geralmente vindo da convicção prévia do leitor." },
+      "notas":"Vocabulário técnico. Repetir os dois termos em voz alta." },
+
+    { "layout":"tabela", "campos":{
+        "titulo":"Três níveis de leitura",
+        "colunas":["Nível","Objetivo","Resultado"],
+        "linhas":[
+          ["Panorâmica","Ver o todo","Mapa do livro"],
+          ["Analítica","Ver as partes","Estrutura e argumento"],
+          ["Sintópica","Ver com outros","Diálogo entre fontes"]
+        ] },
+      "notas":"Ler a tabela linha a linha, sem ler tudo." },
+
+    { "layout":"metodo_etapas", "campos":{
+        "titulo":"Método Cornell",
+        "etapas":[
+          {"num":1,"titulo":"Notas","texto":"Coluna larga: o conteúdo como veio."},
+          {"num":2,"titulo":"Pistas","texto":"Coluna estreita: perguntas e palavras-chave."},
+          {"num":3,"titulo":"Síntese","texto":"Rodapé: o essencial em duas frases."}
+        ] },
+      "notas":"Mostrar a folha real depois." }
+  ]
+};
+
+carregarDemo();
+</script>
+</body>
+</html>
