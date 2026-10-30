@@ -327,6 +327,21 @@
     .metricas{grid-template-columns:1fr}
   }
 </style>
+<script src="porteiro.js" data-app="Gerador de Apresentações" data-protege="https://gerador-slides.eneaspr.workers.dev"></script>
+<style>
+  /* modo claro: vale só para a tela do app (as cores dos slides seguem a paleta escolhida) */
+  html.modo-claro{--bg:#f6f1e4!important;--deep:#ece4d0!important;--card:#fffdf6!important;--linha:#ddd2b6!important;--accent:#a77f17!important;--texto:#1b2438!important;--muted:#6b6658!important}
+  .acoes-topo{display:flex;gap:8px;align-items:center}
+  @media (max-width:600px){ .topo{flex-wrap:wrap!important} .acoes-topo{width:100%;justify-content:flex-end} }
+  .acoes-topo button{background:none;border:1px solid var(--linha);color:var(--muted);border-radius:999px;padding:5px 11px;font-size:12px;cursor:pointer;font-family:inherit}
+</style>
+<script>
+function temaGS(){ try{ return localStorage.getItem('gerador_tema')==='claro'?'claro':'escuro'; }catch(e){ return 'escuro'; } }
+function aplicarTemaGS(){ const c=temaGS()==='claro'; document.documentElement.classList.toggle('modo-claro',c);
+  const b=document.getElementById('btnTemaGS'); if(b) b.textContent=c?'🌙 Escuro':'☀️ Claro'; }
+function trocarTemaGS(){ try{ localStorage.setItem('gerador_tema', temaGS()==='claro'?'escuro':'claro'); }catch(e){} aplicarTemaGS(); }
+aplicarTemaGS(); document.addEventListener('DOMContentLoaded', aplicarTemaGS);
+</script>
 </head>
 <body>
 
@@ -341,7 +356,12 @@
       <p>Igreja Vidas &middot; MENTOR</p>
     </div>
   </div>
-  <span class="versao" id="selo" onclick="checarAtualizacao(false)" title="Clique para verificar se ha versao nova"></span>
+  <div class="acoes-topo">
+    <button type="button" id="btnTemaGS" onclick="trocarTemaGS()">☀️ Claro</button>
+    <button type="button" onclick="recarregarLimpo()" title="Atualizar app">⟳</button>
+    <button type="button" onclick="porteiroSair()">Sair</button>
+    <span class="versao" id="selo" onclick="checarAtualizacao(false)" title="Clique para verificar se ha versao nova"></span>
+  </div>
 </header>
 
 <nav class="abas">
@@ -424,8 +444,8 @@
 /* ==========================================================================
    0. VERSÃO — muda a cada entrega; o app se compara com a cópia no servidor
    ========================================================================== */
-const VERSAO = '4.8';
-const DATA_VERSAO = '21/07/2026';
+const VERSAO = '4.9';
+const DATA_VERSAO = '30/10/2026';
 
 function selo(txt, cor){
   const el = document.getElementById('selo');
@@ -1631,7 +1651,7 @@ function interpretarErro(status, corpo){
   const t = String(corpo || '');
   if (status === 524 || status === 504 || /524|timeout/i.test(t)) return 'TIMEOUT';
   if (status === 522 || status === 502) return 'O Worker não respondeu (' + status + '). Confira se ele está publicado.';
-  if (status === 401 || status === 403) return 'Chave da API recusada. Confira o segredo ANTHROPIC_API_KEY no Worker.';
+  if (status === 401 || status === 403) return 'Acesso recusado. Entre de novo com o seu e-mail e senha.';
   if (status === 429) return 'Limite de uso da API atingido. Aguarde um momento e tente de novo.';
   try { const j = JSON.parse(t); return (j.error && j.error.message) || j.erro || t.slice(0,200); }
   catch(e){ return 'HTTP ' + status + ' — ' + t.replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim().slice(0,180); }
